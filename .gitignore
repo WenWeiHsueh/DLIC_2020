@@ -4,5 +4,6 @@
 *.fsdb
 *.dc
 *.sdf
+jgproject/
 syn/
 build/

@@ -19,7 +19,7 @@ module convCtrl #(
            input   wire    [LOCAL_IDX_WIDTH-1:0] local_idx,
            output  reg     local_idx_rst,
 
-           input   wire    [LOCAL_IDX_WIDTH-1:0] row_idx,
+           input   wire    [7:0] row_idx,
            output  reg     row_idx_rst,
 
            output  reg     [11:0] flags
@@ -52,12 +52,12 @@ end
 // State transition condition
 wire gen_in_addr_cont = (local_idx == 1);
 wire read_in_done = (local_idx == (3*IN_BUFFER_SIZE + 2));
-wire comp_done = (local_idx == (OUT_BUFFER_SIZE + 1));
-wire write_conv_done = (local_idx == (2*OUT_BUFFER_SIZE+1));
+wire comp_conv_done = (local_idx == (OUT_BUFFER_SIZE + 1));
+wire write_conv_done = (local_idx == (2*OUT_BUFFER_SIZE + 1));
 wire conv_finish = (row_idx == 64);
 wire read_conv_done = (local_idx == 8192 + 2);
-wire write_pool_done = (local_idx == 2048 + 2);
-wire write_flat_done = (local_idx == 2048 + 2);
+wire write_pool_done = (local_idx == 2048);
+wire write_flat_done = (local_idx == 2048);
 
 // Next State Logic (C)
 always @(*) begin
@@ -87,7 +87,7 @@ always @(*) begin
         end
 
         curr_state[S_CONV_RELU]: begin
-            if(comp_done)
+            if(comp_conv_done)
                 next_state[S_WRITE_CONV] = 1'b1;
             else
                 next_state[S_CONV_RELU] = 1'b1;
@@ -172,7 +172,7 @@ always @(*) begin
         end
 
         curr_state[S_CONV_RELU]: begin
-            if(comp_done)
+            if(comp_conv_done)
                 local_idx_rst = 1;
             else
                 flags[F_CONV_RELU_ENB] = 1'b1;

@@ -30,22 +30,22 @@ localparam F_GEN_IN_ADDR = 0, F_READ_IN_ENB = 1, F_CONV_RELU_ENB = 2,
 wire [11:0] flags;
 
 // Local index counter
-reg [LOCAL_IDX_WIDTH-1:0] local_idx = 0;
+reg [LOCAL_IDX_WIDTH-1:0] local_idx = {LOCAL_IDX_WIDTH{1'b0}};
 wire local_idx_rst;
 always @(posedge clk) begin
     if(reset || local_idx_rst)
-        local_idx <= 0;
+        local_idx <= {LOCAL_IDX_WIDTH{1'b0}};
     else
         local_idx <= local_idx + 1;
 end
 
 // Row index counter
-reg [LOCAL_IDX_WIDTH-1:0] row_idx = 0;
+reg [7:0] row_idx = 8'h00;
 wire row_idx_rst;
 wire row_idx_zero_sig = (reset || row_idx_rst);
 always @(negedge flags[F_WRITE_CONV_ENB], posedge row_idx_zero_sig) begin
     if(row_idx_zero_sig)
-        row_idx <= 0;
+        row_idx <= 8'h00;
     else
         row_idx <= row_idx + 1;
 end
