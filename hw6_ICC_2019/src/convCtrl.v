@@ -29,7 +29,7 @@ module convCtrl #(
 localparam S_IDLE_0 = 0, S_GEN_IN_ADDR = 1, S_READ_IN = 2, S_CONV_RELU = 3,
            S_WRITE_CONV = 4, S_GEN_CONV_ADDR = 5, S_READ_CONV = 6,
            S_WRITE_POOL = 7, S_WRITE_FLAT = 8, S_FINISH = 9;
-localparam S_INIT = 16'h0000;
+localparam S_INIT = 0;
 
 // State Register (S)
 reg [10:0] curr_state, next_state;
