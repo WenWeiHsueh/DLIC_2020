@@ -40,7 +40,7 @@ always @(posedge clk) begin
 end
 
 // Row index counter
-reg [LOCAL_IDX_WIDTH-1:0] row_idx = 0;
+reg [7:0] row_idx = 0;
 wire row_idx_rst;
 wire row_idx_zero_sig = (reset || row_idx_rst);
 always @(negedge flags[F_WRITE_CONV_ENB], posedge row_idx_zero_sig) begin

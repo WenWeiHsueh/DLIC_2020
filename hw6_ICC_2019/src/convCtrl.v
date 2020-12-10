@@ -19,7 +19,7 @@ module convCtrl #(
            input   wire    [LOCAL_IDX_WIDTH-1:0] local_idx,
            output  reg     local_idx_rst,
 
-           input   wire    [LOCAL_IDX_WIDTH-1:0] row_idx,
+           input   wire    [7:0] row_idx,
            output  reg     row_idx_rst,
 
            output  reg     [11:0] flags
