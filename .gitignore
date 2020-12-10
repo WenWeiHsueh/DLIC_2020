@@ -1,0 +1,8 @@
+*.log
+*.key
+*.conf
+*.fsdb
+*.dc
+*.sdf
+syn/
+build/
