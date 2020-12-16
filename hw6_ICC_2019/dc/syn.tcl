@@ -1,6 +1,7 @@
 # Read all Files
 set top CONV
-read_verilog ../src/${top}.v
+#read_verilog ../src/${top}.v
+read_file -autoread -top ${top} -recursive {../src} -library ${top}
 current_design ${top}
 link
 
@@ -41,3 +42,4 @@ report_area > area.log
 report_timing > timing.log
 report_qor > ${top}_syn.qor
 
+exit

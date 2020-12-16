@@ -292,8 +292,8 @@ wire [DATA_WIDTH-1:0] max_pool_ker0 [0:1023];
 wire [DATA_WIDTH-1:0] max_pool_ker1 [0:1023];
 genvar i, j;
 generate
-    for(i=0;i<32;i=i+1) begin // row
-        for(j=0;j<32;j=j+1) begin // col
+    for(i=0;i<32;i=i+1) begin: rowBlock // row
+        for(j=0;j<32;j=j+1) begin: colBlock // col
             // Pooling units for kernel 0 results
             maxPool_2x2 #(
                             .DATA_WIDTH (DATA_WIDTH)

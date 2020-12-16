@@ -41,9 +41,9 @@ always @(posedge clk, posedge reset) begin
 end // State Register (S)
 
 // IDLE state transition condition
-reg idle_done = 0;
+reg idle_done;
 always @(negedge reset) begin
-    if(reset == 0 && ready == 1)
+    if(!reset && ready)
         idle_done <= 1;
     else
         idle_done <= 0;
