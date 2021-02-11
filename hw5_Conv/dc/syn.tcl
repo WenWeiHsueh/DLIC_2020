@@ -41,3 +41,4 @@ report_area > area.log
 report_timing > timing.log
 report_qor > ${top}_syn.qor
 
+exit
