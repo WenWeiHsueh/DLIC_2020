@@ -1,3 +1,6 @@
+# Force multicore
+set_host_options -max_cores 16
+
 # Read all Files
 set top CONV
 #read_verilog ../src/${top}.v
