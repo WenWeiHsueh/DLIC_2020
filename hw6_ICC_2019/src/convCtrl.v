@@ -1,15 +1,7 @@
+`include "flag_def.v"
+
 module convCtrl #(
-           parameter LOCAL_IDX_WIDTH = 16,
-           parameter IN_BUFFER_SIZE = 16,
-           parameter OUT_BUFFER_SIZE = 3,
-           parameter F_GEN_IN_ADDR = 0,
-           parameter F_READ_IN_ENB = 1,
-           parameter F_CONV_RELU_ENB = 2,
-           parameter F_WRITE_CONV_ENB = 3,
-           parameter F_GEN_CONV_ADDR = 4,
-           parameter F_READ_CONV_ENB = 5,
-           parameter F_WRITE_POOL_ENB = 6,
-           parameter F_WRITE_FLAT_ENB = 7
+           parameter LOCAL_IDX_WIDTH = 16
        )(
            input   wire    clk,
            input   wire    reset,
@@ -20,7 +12,6 @@ module convCtrl #(
            output  reg     local_idx_rst,
 
            input   wire    [7:0] row_idx,
-           output  reg     row_idx_rst,
 
            output  reg     [11:0] flags
        );
@@ -29,7 +20,7 @@ module convCtrl #(
 localparam S_IDLE_0 = 0, S_GEN_IN_ADDR = 1, S_READ_IN = 2, S_CONV_RELU = 3,
            S_WRITE_CONV = 4, S_GEN_CONV_ADDR = 5, S_READ_CONV = 6,
            S_WRITE_POOL = 7, S_WRITE_FLAT = 8, S_FINISH = 9;
-localparam S_INIT = 0;
+localparam S_INIT = 10'b0;
 
 // State Register (S)
 reg [10:0] curr_state, next_state;
@@ -49,11 +40,20 @@ always @(negedge reset) begin
         idle_done <= 0;
 end
 
+// Convert async reset signal to sync signal
+reg sync_reset;
+always @(posedge clk) begin
+    if(reset)
+        sync_reset <= 1'b1;
+    else
+        sync_reset <= 1'b0;
+end
+
 // State transition condition
 wire gen_in_addr_cont = (local_idx == 1);
-wire read_in_done = (local_idx == (3*IN_BUFFER_SIZE + 2));
-wire comp_conv_done = (local_idx == (OUT_BUFFER_SIZE + 1));
-wire write_conv_done = (local_idx == (2*OUT_BUFFER_SIZE + 1));
+wire read_in_done = (local_idx == (3*`IN_BUFFER_SIZE + 2));
+wire comp_conv_done = (local_idx == (`OUT_BUFFER_SIZE + 1));
+wire write_conv_done = (local_idx == (2*`OUT_BUFFER_SIZE + 1));
 wire conv_finish = (row_idx == 64);
 wire read_conv_done = (local_idx == 8192 + 2);
 wire write_pool_done = (local_idx == 2048);
@@ -146,19 +146,17 @@ end // Next State Logic (C)
 always @(*) begin
     flags = 12'h000;
     local_idx_rst = 0;
-    row_idx_rst = 0;
     busy = 1;
 
     case(1'b1) // sythnsize parallel_case
 
         curr_state[S_IDLE_0]: begin
             local_idx_rst = 1;
-            row_idx_rst = 1;
             busy = 0;
         end
 
         curr_state[S_GEN_IN_ADDR]: begin
-            flags[F_GEN_IN_ADDR] = 1'b1;
+            flags[`F_GEN_IN_ADDR] = 1'b1;
         end
 
         curr_state[S_READ_IN]: begin
@@ -166,8 +164,8 @@ always @(*) begin
                 local_idx_rst = 1;
             end
             else begin
-                flags[F_READ_IN_ENB] = 1'b1;
-                flags[F_GEN_IN_ADDR] = 1'b1;
+                flags[`F_READ_IN_ENB] = 1'b1;
+                flags[`F_GEN_IN_ADDR] = 1'b1;
             end
         end
 
@@ -175,26 +173,26 @@ always @(*) begin
             if(comp_conv_done)
                 local_idx_rst = 1;
             else
-                flags[F_CONV_RELU_ENB] = 1'b1;
+                flags[`F_CONV_RELU_ENB] = 1'b1;
         end
 
         curr_state[S_WRITE_CONV]: begin
             if(write_conv_done)
                 local_idx_rst = 1;
             else
-                flags[F_WRITE_CONV_ENB] = 1'b1;
+                flags[`F_WRITE_CONV_ENB] = 1'b1;
         end
 
         curr_state[S_GEN_CONV_ADDR]: begin
-            flags[F_GEN_CONV_ADDR] = 1'b1;
+            flags[`F_GEN_CONV_ADDR] = 1'b1;
         end
 
         curr_state[S_READ_CONV]: begin
             if(read_conv_done)
                 local_idx_rst = 1;
             else begin
-                flags[F_READ_CONV_ENB] = 1'b1;
-                flags[F_GEN_CONV_ADDR] = 1'b1;
+                flags[`F_READ_CONV_ENB] = 1'b1;
+                flags[`F_GEN_CONV_ADDR] = 1'b1;
             end
         end
 
@@ -202,14 +200,14 @@ always @(*) begin
             if(write_pool_done)
                 local_idx_rst = 1;
             else
-                flags[F_WRITE_POOL_ENB] = 1'b1;
+                flags[`F_WRITE_POOL_ENB] = 1'b1;
         end
 
         curr_state[S_WRITE_FLAT]: begin
             if(write_flat_done)
                 local_idx_rst = 1;
             else
-                flags[F_WRITE_FLAT_ENB] = 1'b1;
+                flags[`F_WRITE_FLAT_ENB] = 1'b1;
         end
 
         curr_state[S_FINISH]:
@@ -220,5 +218,12 @@ always @(*) begin
 
     endcase
 end // Output Logic (C)
+
+// // Output Logic (L) for busy 
+// always @(clk) begin
+//     if(clk) begin
+//        if (!reset && curr_state[S_IDLE_1])
+//     end
+// end // Output Logic (L) for busy
 
 endmodule

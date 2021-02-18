@@ -1,16 +1,8 @@
+`include "flag_def.v"
+
 module convDataPath #(
            parameter LOCAL_IDX_WIDTH = 16,
-           parameter DATA_WIDTH = 20,
-           parameter IN_BUFFER_SIZE = 16,
-           parameter OUT_BUFFER_SIZE = 3,
-           parameter F_GEN_IN_ADDR = 0,
-           parameter F_READ_IN_ENB = 1,
-           parameter F_CONV_RELU_ENB = 2,
-           parameter F_WRITE_CONV_ENB = 3,
-           parameter F_GEN_CONV_ADDR = 4,
-           parameter F_READ_CONV_ENB = 5,
-           parameter F_WRITE_POOL_ENB = 6,
-           parameter F_WRITE_FLAT_ENB = 7
+           parameter DATA_WIDTH = 20
        )(
            input   wire    clk,
 
@@ -63,14 +55,14 @@ assign w_mem1[8] = 20'h05E68;
 wire signed [DATA_WIDTH-1:0] b_1 = 20'hF7295;
 
 // Input memory (Stores input data)
-reg signed [DATA_WIDTH-1:0] in_mem0 [0:IN_BUFFER_SIZE-1];
-reg signed [DATA_WIDTH-1:0] in_mem1 [0:IN_BUFFER_SIZE-1];
-reg signed [DATA_WIDTH-1:0] in_mem2 [0:IN_BUFFER_SIZE-1];
+reg signed [DATA_WIDTH-1:0] in_mem0 [0:`IN_BUFFER_SIZE-1];
+reg signed [DATA_WIDTH-1:0] in_mem1 [0:`IN_BUFFER_SIZE-1];
+reg signed [DATA_WIDTH-1:0] in_mem2 [0:`IN_BUFFER_SIZE-1];
 
 // Output memory (Stores the results of convolution)
 wire signed [2*DATA_WIDTH-1:0] conv_out_raw [0:5]; // Output of 6 PE units
-reg signed [DATA_WIDTH-1:0] conv_out_fifo_ker0 [0:OUT_BUFFER_SIZE-1]; // Output of kernel 0
-reg signed [DATA_WIDTH-1:0] conv_out_fifo_ker1 [0:OUT_BUFFER_SIZE-1]; // Output of kernel 1
+reg signed [DATA_WIDTH-1:0] conv_out_fifo_ker0 [0:`OUT_BUFFER_SIZE-1]; // Output of kernel 0
+reg signed [DATA_WIDTH-1:0] conv_out_fifo_ker1 [0:`OUT_BUFFER_SIZE-1]; // Output of kernel 1
 
 // Pseudo memory that mimic the behavior of zero-padded input feature map
 wire in_zero_flag;
@@ -79,18 +71,18 @@ fakeMem #(.LOCAL_IDX_WIDTH (LOCAL_IDX_WIDTH) ) f_mem (.clk(clk), .pseudo_addr(ps
 
 // Generate input address
 wire [LOCAL_IDX_WIDTH-1:0] in_row_offset = row_idx * 66;
-wire addr0_sel = (local_idx < IN_BUFFER_SIZE);
-wire addr1_sel = (local_idx >= IN_BUFFER_SIZE && local_idx < 2*IN_BUFFER_SIZE);
-wire addr2_sel = (local_idx >= 2*IN_BUFFER_SIZE && local_idx < 3*IN_BUFFER_SIZE);
+wire addr0_sel = (local_idx < `IN_BUFFER_SIZE);
+wire addr1_sel = (local_idx >= `IN_BUFFER_SIZE && local_idx < 2*`IN_BUFFER_SIZE);
+wire addr2_sel = (local_idx >= 2*`IN_BUFFER_SIZE && local_idx < 3*`IN_BUFFER_SIZE);
 always @(posedge clk) begin
-    if(flags[F_GEN_IN_ADDR]) begin
+    if(flags[`F_GEN_IN_ADDR]) begin
         case({addr0_sel, addr1_sel, addr2_sel})
             3'b100:
                 pseudo_addr <= in_row_offset + local_idx;
             3'b010:
-                pseudo_addr <= in_row_offset + local_idx - IN_BUFFER_SIZE + 66;
+                pseudo_addr <= in_row_offset + local_idx - `IN_BUFFER_SIZE + 66;
             3'b001:
-                pseudo_addr <= in_row_offset + local_idx - 2*IN_BUFFER_SIZE + 132;
+                pseudo_addr <= in_row_offset + local_idx - 2*`IN_BUFFER_SIZE + 132;
             default:
                 ;
         endcase
@@ -99,18 +91,18 @@ end
 
 // Get input data
 wire [7:0] read_in_idx = (local_idx >= 2) ? (local_idx - 2) : 0;
-wire m0_sel = (read_in_idx < IN_BUFFER_SIZE);
-wire m1_sel = (read_in_idx >= IN_BUFFER_SIZE && read_in_idx < 2*IN_BUFFER_SIZE);
-wire m2_sel = (read_in_idx >= 2*IN_BUFFER_SIZE && read_in_idx < 3*IN_BUFFER_SIZE);
+wire m0_sel = (read_in_idx < `IN_BUFFER_SIZE);
+wire m1_sel = (read_in_idx >= `IN_BUFFER_SIZE && read_in_idx < 2*`IN_BUFFER_SIZE);
+wire m2_sel = (read_in_idx >= 2*`IN_BUFFER_SIZE && read_in_idx < 3*`IN_BUFFER_SIZE);
 always @(negedge clk) begin
-    if(flags[F_READ_IN_ENB]) begin
+    if(flags[`F_READ_IN_ENB]) begin
         case({m0_sel, m1_sel, m2_sel})
             3'b100:
                 in_mem0[read_in_idx] <= (in_zero_flag == 1) ? 0 : idata;
             3'b010:
-                in_mem1[read_in_idx - IN_BUFFER_SIZE] <= (in_zero_flag == 1) ? 0 : idata;
+                in_mem1[read_in_idx - `IN_BUFFER_SIZE] <= (in_zero_flag == 1) ? 0 : idata;
             3'b001:
-                in_mem2[read_in_idx - 2*IN_BUFFER_SIZE] <= (in_zero_flag == 1) ? 0 : idata;
+                in_mem2[read_in_idx - 2*`IN_BUFFER_SIZE] <= (in_zero_flag == 1) ? 0 : idata;
             default:
                 ;
         endcase
@@ -118,7 +110,7 @@ always @(negedge clk) begin
 end
 
 // 1D convolution unit
-wire mul_enb = flags[F_CONV_RELU_ENB];
+wire mul_enb = flags[`F_CONV_RELU_ENB];
 // Kernel 0
 PE_1d #(
           .DATA_WIDTH (DATA_WIDTH)
@@ -172,8 +164,8 @@ PE_1d #(
 // Convolution input FIFO
 reg signed [7:0]in_idx;
 always @(posedge clk) begin
-    if(flags[F_CONV_RELU_ENB]) begin
-        for(in_idx=0 ; in_idx < IN_BUFFER_SIZE-1 ; in_idx = in_idx + 1) begin
+    if(flags[`F_CONV_RELU_ENB]) begin
+        for(in_idx=0 ; in_idx < `IN_BUFFER_SIZE-1 ; in_idx = in_idx + 1) begin
             in_mem0[in_idx] <= in_mem0[in_idx+1];
             in_mem1[in_idx] <= in_mem1[in_idx+1];
             in_mem2[in_idx] <= in_mem2[in_idx+1];
@@ -199,13 +191,13 @@ assign relu_out[1] = (sum[1][DATA_WIDTH-1] == 1'b1) ? 0 : sum[1];
 // Convolution output FIFO
 reg signed [7:0] out_idx;
 always @(posedge clk) begin
-    if(flags[F_CONV_RELU_ENB]) begin
+    if(flags[`F_CONV_RELU_ENB]) begin
         if(local_idx >= 1) begin
             // Push the results to the bottom of the FIFO
-            conv_out_fifo_ker0[OUT_BUFFER_SIZE-1] <= relu_out[0];
-            conv_out_fifo_ker1[OUT_BUFFER_SIZE-1] <= relu_out[1];
+            conv_out_fifo_ker0[`OUT_BUFFER_SIZE-1] <= relu_out[0];
+            conv_out_fifo_ker1[`OUT_BUFFER_SIZE-1] <= relu_out[1];
 
-            for(out_idx = OUT_BUFFER_SIZE-2 ; out_idx >= 0 ; out_idx = out_idx - 1) begin
+            for(out_idx = `OUT_BUFFER_SIZE-2 ; out_idx >= 0 ; out_idx = out_idx - 1) begin
                 conv_out_fifo_ker0[out_idx] <= conv_out_fifo_ker0[out_idx+1];
                 conv_out_fifo_ker1[out_idx] <= conv_out_fifo_ker1[out_idx+1];
             end
@@ -215,10 +207,10 @@ end
 
 // Write the convolution results to Layer 0
 wire [LOCAL_IDX_WIDTH-1:0] out_row_offset = row_idx * 64;
-wire [0:1] wr_conv_sel = {(local_idx < OUT_BUFFER_SIZE), (local_idx >= OUT_BUFFER_SIZE && local_idx < 2*OUT_BUFFER_SIZE)};
+wire [0:1] wr_conv_sel = {(local_idx < `OUT_BUFFER_SIZE), (local_idx >= `OUT_BUFFER_SIZE && local_idx < 2*`OUT_BUFFER_SIZE)};
 wire [7:0] conv_out_fifo_idx = local_idx;
 always @(posedge clk) begin
-    if(flags[F_WRITE_CONV_ENB]) begin
+    if(flags[`F_WRITE_CONV_ENB]) begin
         case(wr_conv_sel)
             2'b10: begin // Write kernel 0 conv result to Layer 0
                 cwr <= 1'b1;
@@ -229,8 +221,8 @@ always @(posedge clk) begin
             2'b01: begin // Write kernel 1 conv result to Layer 0
                 cwr <= 1'b1;
                 csel <= 3'b010;
-                caddr_wr <= out_row_offset + (local_idx - OUT_BUFFER_SIZE);
-                cdata_wr <= conv_out_fifo_ker1[conv_out_fifo_idx - OUT_BUFFER_SIZE];
+                caddr_wr <= out_row_offset + (local_idx - `OUT_BUFFER_SIZE);
+                cdata_wr <= conv_out_fifo_ker1[conv_out_fifo_idx - `OUT_BUFFER_SIZE];
             end
             default: begin
                 cwr <= 1'b0;
@@ -248,7 +240,7 @@ reg [DATA_WIDTH-1:0] layer0_ker1_mem [0:4095];
 // Generate read address to Layer 0
 wire [0:1] layer0_addr_sel = {(local_idx < 4096), (local_idx >= 4096 && local_idx < 2*4096)};
 always @(posedge clk) begin
-    if(flags[F_GEN_CONV_ADDR]) begin
+    if(flags[`F_GEN_CONV_ADDR]) begin
         case(layer0_addr_sel)
             2'b10: begin // Read layer 0 results computed by kernel 0
                 crd <= 1'b1;
@@ -273,7 +265,7 @@ end
 wire [12:0] read_layer0_idx = (local_idx >= 2) ? (local_idx - 2) : 0;
 wire [0:1] conv_mem_sel = {(read_layer0_idx < 4096), (read_layer0_idx >= 4096 && read_layer0_idx < 2*4096)};
 always @(negedge clk) begin
-    if(flags[F_READ_CONV_ENB]) begin
+    if(flags[`F_READ_CONV_ENB]) begin
         case(conv_mem_sel)
             2'b10: begin
                 layer0_ker0_mem[read_layer0_idx] <= cdata_rd;
@@ -322,7 +314,7 @@ endgenerate
 wire [0:1] pool_mem_sel = {(local_idx < 1024), (local_idx >= 1024 && local_idx < 2*1024)};
 wire [10:0] max_pool_idx = local_idx;
 always @(posedge clk) begin
-    if(flags[F_WRITE_POOL_ENB]) begin
+    if(flags[`F_WRITE_POOL_ENB]) begin
         case(pool_mem_sel)
             2'b10: begin // Write pooling results computed by kernel 0
                 cwr <= 1'b1;
@@ -349,7 +341,7 @@ end
 wire [0:1] flat_mem_sel = {(local_idx < 1024), (local_idx >= 1024 && local_idx < 2*1024)};
 wire [LOCAL_IDX_WIDTH-1:0] double_local_idx = {local_idx[LOCAL_IDX_WIDTH-2:0], 1'b0};
 always @(posedge clk) begin
-    if(flags[F_WRITE_FLAT_ENB]) begin
+    if(flags[`F_WRITE_FLAT_ENB]) begin
         case(flat_mem_sel)
             2'b10: begin // Write kernel 0 pooling results to even address
                 cwr <= 1'b1;
