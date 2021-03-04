@@ -84,6 +84,7 @@ convCtrl conv_controller (
 // Convolution Data Path
 convDataPath conv_data_path (
     .clk(clk),
+    .reset(reset),
     .iaddr(iaddr), 
     .idata(idata),
     .cwr(cwr), 

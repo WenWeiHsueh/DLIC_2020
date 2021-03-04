@@ -9,7 +9,7 @@ current_design ${top}
 link
 
 # Setting Clock Constraits
-source -echo -verbose ../dc/${top}.sdc
+source -echo -verbose ../script/${top}.sdc
 
 set high_fanout_net_threshold 0
  
