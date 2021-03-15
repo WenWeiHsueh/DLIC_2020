@@ -15,7 +15,7 @@ module convCtrl (
        );
 
 // State Register (S)
-reg [`STATE_WIDTH-1:0] curr_state, next_state;
+reg [`STATE_W-1:0] curr_state, next_state;
 always @(posedge clk, posedge reset) begin
     if(reset)
         curr_state <= (`S_INIT | 1'b1); // `S_IDLE_0

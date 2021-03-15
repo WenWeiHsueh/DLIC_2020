@@ -42,7 +42,7 @@ reg [15:0] input_mem [0:8];
 reg signed [31:0] weight_mem_signed [0:9];
 
 // FSM state
-reg [`STATE_WIDTH-1:0] curr_state, next_state;
+reg [`STATE_W-1:0] curr_state, next_state;
 
 // State register (S)
 always @(posedge clk) begin

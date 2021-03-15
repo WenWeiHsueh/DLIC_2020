@@ -1,4 +1,4 @@
-// This is generated automatically on 2021/03/16-01:04:01
+// This is generated automatically on 2021/03/16-01:31:36
 // Check the # of bits for state registers !!!
 // Check the # of bits for flag registers !!!
 
@@ -25,7 +25,7 @@
 `define S_WRITE                	 5  
 `define S_FINISH               	 6  
 `define S_INIT                 	 7'b0
-`define STATE_WIDTH            	 7  
+`define STATE_W                	 7  
 
 // Other macro in this design
 `define IN_BUFFER_SIZE         	 8'd66
