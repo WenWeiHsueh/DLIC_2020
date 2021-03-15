@@ -1,4 +1,4 @@
-// This is generated automatically on 2021/03/16-00:36:36
+// This is generated automatically on 2021/03/16-01:04:01
 // Check the # of bits for state registers !!!
 // Check the # of bits for flag registers !!!
 
@@ -31,9 +31,9 @@
 `define IN_BUFFER_SIZE         	 8'd66
 `define OUT_BUFFER_SIZE        	 8'd64
 `define READ_MEM_DELAY         	 2'd2
-`define EMPTY_ADDR             	 {12{1'b0}}
+`define EMPTY_ADDR             	 {32{1'b0}}
 `define EMPTY_DATA             	 {20{1'b0}}
-`define LOCAL_IDX_WIDTH        	 16 
+`define LOCAL_IDX_WIDTH        	 10 
 `define DATA_WIDTH             	 20 
 
 `endif
