@@ -1,6 +1,8 @@
 // This module translate the zero-padded 66x66 input memory index
 // to the real 64x64 input memory index. By doing so, we don't need
 // to "actually" do zero-padding
+
+`include "def.v"
 module fakeMem (
            input   wire    clk,
            input   wire    [`LOCAL_IDX_WIDTH-1:0] pseudo_addr,
@@ -23,7 +25,7 @@ wire zero_cond = ((pseudo_addr >= 0) && (pseudo_addr <= 65)) || ((pseudo_addr >=
 always @(*) begin
     if(zero_cond) begin
         zero_flag = 1;
-        iaddr = 12'hzzz; // sending nothing to address bus
+        iaddr = `EMPTY_ADDR; // sending nothing to address bus
     end
     else begin
         zero_flag = 0;
