@@ -1,4 +1,4 @@
-`include "flag_def.v"
+`include "def.v"
 
 module  CONV(
             input         wire         clk,
@@ -19,52 +19,84 @@ module  CONV(
             output        wire         [2:0] csel
         );
 
-localparam DATA_WIDTH = 20;
-localparam LOCAL_IDX_WIDTH = 16;
-
 // Flags
-wire [11:0] flags;
+wire [`FLAG_WIDTH-1:0] flags;
 
-// Local index counter
-reg [LOCAL_IDX_WIDTH-1:0] local_idx;
-wire local_idx_rst;
-always @(posedge clk) begin
-    if(reset || local_idx_rst)
-        local_idx <= {LOCAL_IDX_WIDTH{1'b0}};
+// Synchronize reset signal
+reg sync_reset;
+always @(posedge clk) begin 
+    if(reset)
+        sync_reset <= 1'b1;
     else
-        local_idx <= local_idx + 1;
+        sync_reset <= 1'b0;
 end
 
+// Local index counter
+reg [`LOCAL_IDX_WIDTH-1:0] local_idx;
+wire local_idx_rst;
+always @(posedge clk) begin
+    if(sync_reset || local_idx_rst)
+        local_idx <= {`LOCAL_IDX_WIDTH{1'b0}};
+    else
+        local_idx <= local_idx + 1'b1;
+end
+
+
+// Catch the negedge of flags[`F_WRITE_CONV_ENB]
+reg sample_conv_enb;
+always @(posedge clk) begin
+    if(flags[`F_WRITE_CONV_ENB])
+        sample_conv_enb <= 1'b1;
+    else
+        sample_conv_enb <= 1'b0;
+end
+
+reg latch_conv_enb;
+always @(clk) begin
+    if(!clk) begin
+        latch_conv_enb <= flags[`F_WRITE_CONV_ENB];
+    end
+end
+
+wire neg = !latch_conv_enb & sample_conv_enb;
+
 // Row index counter
-reg [7:0] row_idx = 8'h00;
-always @(negedge flags[`F_WRITE_CONV_ENB], posedge reset) begin
-    if(reset)
+reg [7:0] row_idx;
+always @(posedge clk, posedge sync_reset) begin
+    if(sync_reset)
         row_idx <= 8'h00;
     else
-        row_idx <= row_idx + 1;
+        row_idx <= neg ? row_idx + 1'b1 : row_idx;
 end
 
 // Controller
-convCtrl #(  
-            .LOCAL_IDX_WIDTH (LOCAL_IDX_WIDTH)
-         ) conv_controller (
-             .clk(clk), .reset(reset), .busy(busy),
-             .ready(ready), .local_idx(local_idx),
-             .local_idx_rst(local_idx_rst),
-             .row_idx(row_idx), .flags(flags)
-         );
+convCtrl conv_controller (
+    .clk(clk), 
+    .reset(sync_reset), 
+    .busy(busy),
+    .ready(ready), 
+    .local_idx(local_idx),
+    .local_idx_rst(local_idx_rst),
+    .row_idx(row_idx), 
+    .flags(flags)
+);
 
 // Convolution Data Path
-convDataPath #(
-                .LOCAL_IDX_WIDTH (LOCAL_IDX_WIDTH),
-                .DATA_WIDTH (DATA_WIDTH)
-             ) conv_data_path (
-                 .clk(clk), .iaddr(iaddr), .idata(idata),
-                 .cwr(cwr), .caddr_wr(caddr_wr), .cdata_wr(cdata_wr),
-                 .crd(crd), .caddr_rd(caddr_rd), .cdata_rd(cdata_rd),
-                 .csel(csel),
-                 .flags(flags),
-                 .local_idx(local_idx), .row_idx(row_idx)
-             );
+convDataPath conv_data_path (
+    .clk(clk),
+    .reset(reset),
+    .iaddr(iaddr), 
+    .idata(idata),
+    .cwr(cwr), 
+    .caddr_wr(caddr_wr), 
+    .cdata_wr(cdata_wr),
+    .crd(crd), 
+    .caddr_rd(caddr_rd), 
+    .cdata_rd(cdata_rd),
+    .csel(csel),
+    .flags(flags),
+    .local_idx(local_idx), 
+    .row_idx(row_idx)
+);
 
 endmodule

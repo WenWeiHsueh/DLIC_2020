@@ -1,14 +1,14 @@
 `timescale 1ns/10ps
-`define CYCLE      10.0          	  // Modify your clock period here
-`define SDFFILE    "./syn/CONV_syn.sdf"	  // Modify your sdf file name
-`define End_CYCLE  100000000              // Modify cycle times once your design need more cycle times!
+`define CYCLE      10.0          	         // Modify your clock period here
+`define End_CYCLE  100000000               // Modify cycle times once your design need more cycle times!
 
-`define PAT        "./cnn_sti.dat"                 // Modify your "dat" directory path
-`define L0_EXP0        "./cnn_layer0_exp0.dat"
-`define L0_EXP1        "./cnn_layer0_exp1.dat"
-`define L1_EXP0        "./cnn_layer1_exp0.dat"
-`define L1_EXP1        "./cnn_layer1_exp1.dat"
-`define L2_EXP         "./cnn_layer2_exp.dat"
+// Modify your "dat" directory path
+`define PAT        "./cnn_sti.dat"
+`define L0_EXP0    "./cnn_layer0_exp0.dat"
+`define L0_EXP1    "./cnn_layer0_exp1.dat"
+`define L1_EXP0    "./cnn_layer1_exp0.dat"
+`define L1_EXP1    "./cnn_layer1_exp1.dat"
+`define L2_EXP     "./cnn_layer2_exp.dat"
 
 module testfixture;
 
@@ -77,9 +77,9 @@ module testfixture;
    always begin #(`CYCLE/2) clk = ~clk; end
 
    initial begin
-      $shm_open("CONV.shm");
-      $shm_probe("AS");
-      $fsdbDumpfile("CONV.fsdb");
+      $shm_open(`SHM_FILE);
+      $shm_probe("ASM");
+      $fsdbDumpfile(`FSDB_FILE);
       $fsdbDumpvars;
       $fsdbDumpMDA;
    end
