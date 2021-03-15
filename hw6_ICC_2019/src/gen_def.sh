@@ -54,6 +54,9 @@ done
 # Generate FSM init vector
 printf "$def_pattern" "\`define S_INIT" "${len}'b0"
 
+# Generate state width
+printf "$def_pattern" "\`define STATE_WIDTH" "`expr ${idx}`"
+
 # Generate other macro
 printf "\n// Other macro in this design\n"
 IN_BUFFER_SIZE="8'd66"
