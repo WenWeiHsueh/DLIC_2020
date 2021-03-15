@@ -1,4 +1,4 @@
-// This is generated automatically on 2021/03/16-00:40:07
+// This is generated automatically on 2021/03/16-00:36:36
 // Check the # of bits for state registers !!!
 // Check the # of bits for flag registers !!!
 
@@ -16,20 +16,16 @@
 `define F_WRITE_FLAT_ENB       	 7  
 `define FLAG_WIDTH             	 8  
 
-// There're 11 states in this design
-`define S_IDLE_0               	 0  
-`define S_GEN_IN_ADDR          	 1  
-`define S_READ_IN              	 2  
-`define S_CONV_RELU            	 3  
-`define S_WRITE_CONV           	 4  
-`define S_CHECK_FINISH         	 5  
-`define S_GEN_CONV_ADDR        	 6  
-`define S_READ_CONV            	 7  
-`define S_WRITE_POOL           	 8  
-`define S_WRITE_FLAT           	 9  
-`define S_FINISH               	 10 
-`define S_INIT                 	 11'b0
-`define STATE_WIDTH            	 11 
+// There're 7 states in this design
+`define S_READY                	 0  
+`define S_READ_WEIGHT          	 1  
+`define S_READ_INPUT           	 2  
+`define S_MULTIPLY             	 3  
+`define S_ADD                  	 4  
+`define S_WRITE                	 5  
+`define S_FINISH               	 6  
+`define S_INIT                 	 7'b0
+`define STATE_WIDTH            	 7  
 
 // Other macro in this design
 `define IN_BUFFER_SIZE         	 8'd66

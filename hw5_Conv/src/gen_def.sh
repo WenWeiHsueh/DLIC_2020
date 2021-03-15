@@ -5,16 +5,12 @@ printf "// This is generated automatically on ${timestamp}\n"
 printf "// Check the # of bits for state registers !!!\n"
 printf "// Check the # of bits for flag registers !!!\n\n"
 
-STATES=("S_IDLE_0"          \
-        "S_GEN_IN_ADDR"     \
-        "S_READ_IN"         \
-        "S_CONV_RELU"       \
-        "S_WRITE_CONV"      \
-        "S_CHECK_FINISH"    \
-        "S_GEN_CONV_ADDR"   \
-        "S_READ_CONV"       \
-        "S_WRITE_POOL"      \
-        "S_WRITE_FLAT"      \
+STATES=("S_READY"            \
+        "S_READ_WEIGHT"      \
+        S_READ_INPUT""       \
+        "S_MULTIPLY"         \
+        "S_ADD"              \
+        "S_WRITE"            \
         "S_FINISH")
 
 FLAGS=("F_GEN_IN_ADDR"      \

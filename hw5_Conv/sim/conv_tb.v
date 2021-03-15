@@ -142,8 +142,11 @@ module top_tb;
 	
   initial
   begin
-    $fsdbDumpfile("top.fsdb");
-    $fsdbDumpvars("+struct", "+mda", TOP);
+    $shm_open(`SHM_FILE);
+    $shm_probe("ASM");
+    $fsdbDumpfile(`FSDB_FILE);
+    $fsdbDumpvars;
+    $fsdbDumpMDA;
     #(`CYCLE*`MAX)
     for (i = 0; i < num; i=i+1)
     begin

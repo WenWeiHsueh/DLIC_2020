@@ -1,5 +1,4 @@
 # operating conditions and boundary conditions #
-
 set cycle  20.0        ;#clock period defined by designer
 
 create_clock -period $cycle [get_ports  clk]

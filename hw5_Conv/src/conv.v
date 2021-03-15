@@ -1,3 +1,5 @@
+`include "def.v"
+
 module conv(
            clk,
            rst,
@@ -40,15 +42,12 @@ reg [15:0] input_mem [0:8];
 reg signed [31:0] weight_mem_signed [0:9];
 
 // FSM state
-localparam S_READY = 0, S_READ_WEIGHT = 1, S_READ_INPUT = 2, S_MULTIPLY = 3, S_ADD = 4, S_WRITE = 5, S_FINISH = 6;
-localparam [6:0] INIT_S = 7'h00;
-reg [6:0] curr_state;
-reg [6:0] next_state = INIT_S;
+reg [`STATE_WIDTH-1:0] curr_state, next_state;
 
 // State register (S)
 always @(posedge clk) begin
     if(!rst)
-        curr_state <= INIT_S;
+        curr_state <= `S_INIT;
     else
         curr_state <= next_state;
 end
@@ -60,67 +59,74 @@ wire mul_done = (local_idx == 9);
 wire add_done = (local_idx == 3);
 wire write_done = (local_idx == 1);
 wire finish_cond = (global_idx == 676);
-reg gen_read_w_addr_sig = 0, gen_read_in_addr_sig = 0, write_enb = 0, mult_enb = 0, add_enb = 0;
-reg add_rst = 0, mul_rst = 0;
+
+reg   gen_read_w_addr_sig;
+reg   gen_read_in_addr_sig;
+reg   write_enb;
+reg   mult_enb;
+reg   add_enb;
+reg   add_rst;
+reg   mul_rst;
+
 always @(*) begin
-    next_state = INIT_S;
+    next_state = `S_INIT;
 
     case(1'b1) // synthesis parallel_case
 
-        curr_state[S_READY]: begin
+        curr_state[`S_READY]: begin
             if(start == 1)
-                next_state[S_READ_WEIGHT] = 1'b1;
+                next_state[`S_READ_WEIGHT] = 1'b1;
             else
-                next_state[S_READY] = 1'b1;
+                next_state[`S_READY] = 1'b1;
         end
 
-        curr_state[S_READ_WEIGHT]: begin
+        curr_state[`S_READ_WEIGHT]: begin
             if(read_w_done)
-                next_state[S_READ_INPUT] = 1'b1;
+                next_state[`S_READ_INPUT] = 1'b1;
             else
-                next_state[S_READ_WEIGHT] = 1'b1;
+                next_state[`S_READ_WEIGHT] = 1'b1;
         end
 
-        curr_state[S_READ_INPUT]: begin
+        curr_state[`S_READ_INPUT]: begin
             if(read_in_done)
-                next_state[S_MULTIPLY] = 1'b1;
+                next_state[`S_MULTIPLY] = 1'b1;
             else
-                next_state[S_READ_INPUT] = 1'b1;
+                next_state[`S_READ_INPUT] = 1'b1;
         end
 
-        curr_state[S_MULTIPLY]: begin
+        curr_state[`S_MULTIPLY]: begin
             if(mul_done)
-                next_state[S_ADD] = 1'b1;
+                next_state[`S_ADD] = 1'b1;
             else
-                next_state[S_MULTIPLY] = 1'b1;
+                next_state[`S_MULTIPLY] = 1'b1;
         end
 
-        curr_state[S_ADD]: begin
+        curr_state[`S_ADD]: begin
             if(add_done)
-                next_state[S_WRITE] = 1'b1;
+                next_state[`S_WRITE] = 1'b1;
             else
-                next_state[S_ADD] = 1'b1;
+                next_state[`S_ADD] = 1'b1;
         end
 
-        curr_state[S_WRITE]: begin
+        curr_state[`S_WRITE]: begin
             case({write_done, finish_cond})
                 2'b00:
-                    next_state[S_WRITE] = 1'b1;
+                    next_state[`S_WRITE] = 1'b1;
                 2'b10:
-                    next_state[S_READ_INPUT] = 1'b1;
+                    next_state[`S_READ_INPUT] = 1'b1;
                 2'b11:
-                    next_state[S_FINISH] = 1'b1;
+                    next_state[`S_FINISH] = 1'b1;
                 default:
-                    next_state[S_FINISH] = 1'b1;
+                    next_state[`S_FINISH] = 1'b1;
             endcase
         end
 
-        curr_state[S_FINISH]: begin
-            next_state[S_FINISH] = 1'b1;
+        curr_state[`S_FINISH]: begin
+            next_state[`S_FINISH] = 1'b1;
         end
 
         default: begin
-            next_state[S_READY] = 1'b1;
+            next_state[`S_READY] = 1'b1;
         end
     endcase
 end
@@ -140,21 +146,21 @@ always @(*) begin
 
     case(1'b1) // synthesis parallel_case
 
-        curr_state[S_READY]: begin
+        curr_state[`S_READY]: begin
             if(start == 1) begin
                 global_idx_rst = 1;
                 local_idx_rst = 1;
             end
         end
 
-        curr_state[S_READ_WEIGHT]: begin
+        curr_state[`S_READ_WEIGHT]: begin
             if(read_w_done)
                 local_idx_rst = 1;
             else
                 gen_read_w_addr_sig = 1;
         end
 
-        curr_state[S_READ_INPUT]: begin
+        curr_state[`S_READ_INPUT]: begin
             if(read_in_done) begin
                 local_idx_rst = 1;
                 mul_rst = 1;
@@ -163,7 +169,7 @@ always @(*) begin
                 gen_read_in_addr_sig = 1;
         end
 
-        curr_state[S_MULTIPLY]: begin
+        curr_state[`S_MULTIPLY]: begin
             if(mul_done) begin
                 local_idx_rst = 1;
                 add_rst = 1;
@@ -172,14 +178,14 @@ always @(*) begin
                 mult_enb = 1;
         end
 
-        curr_state[S_ADD]: begin
+        curr_state[`S_ADD]: begin
             if(add_done)
                 local_idx_rst = 1;
             else
                 add_enb = 1;
         end
 
-        curr_state[S_WRITE]: begin
+        curr_state[`S_WRITE]: begin
             case({write_done, finish_cond})
                 2'b00:
                     write_enb = 1;
@@ -190,7 +196,7 @@ always @(*) begin
             endcase
         end
 
-        curr_state[S_FINISH]:
+        curr_state[`S_FINISH]:
             finish = 1;
 
         default:
