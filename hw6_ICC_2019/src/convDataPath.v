@@ -105,13 +105,13 @@ module convDataPath (
    wire       m2_sel = (read_in_idx >= 2*`IN_BUFFER_SIZE && read_in_idx < 3*`IN_BUFFER_SIZE) ? 1'b1 : 1'b0;
    // Push FIFO into PE
    reg signed [7:0] feed_in_idx;
-   integer          i;
+   integer          buf_idx;
    always @(posedge clk or posedge reset) begin
       if(reset) begin
-         for(i = 0 ; i < `IN_BUFFER_SIZE ; i = i + 1) begin
-             in_mem0[i] <= `EMPTY_DATA;
-             in_mem1[i] <= `EMPTY_DATA;
-             in_mem2[i] <= `EMPTY_DATA;
+         for(buf_idx = 0 ; buf_idx < `IN_BUFFER_SIZE ; buf_idx = buf_idx + 1) begin
+             in_mem0[buf_idx] <= `EMPTY_DATA;
+             in_mem1[buf_idx] <= `EMPTY_DATA;
+             in_mem2[buf_idx] <= `EMPTY_DATA;
          end
       end else if ( flags[`F_READ_IN_ENB] ) begin      
           case({m0_sel, m1_sel, m2_sel}) //synopsys full_case
@@ -188,8 +188,13 @@ module convDataPath (
 
    // Convolution output FIFO
    reg signed [7:0] 		   out_idx;
-   always @(posedge clk) begin
-      if(flags[`F_CONV_RELU_ENB]) begin
+   always @(posedge clk, posedge reset) begin
+      if(reset) begin
+         for(out_idx = 0 ; out_idx <=  `OUT_BUFFER_SIZE-1 ; out_idx = out_idx + 1) begin
+            conv_out_fifo_ker0[out_idx] <= `EMPTY_DATA;
+            conv_out_fifo_ker1[out_idx] <= `EMPTY_DATA;
+         end
+      end else if (flags[`F_CONV_RELU_ENB]) begin
          if(local_idx >= 2) begin
             // Push the results to the bottom of the FIFO
             conv_out_fifo_ker0[`OUT_BUFFER_SIZE-1] <= relu_out[0];
@@ -257,130 +262,78 @@ module convDataPath (
    endgenerate
 
    // csel / cwr / caddr_wr / cdata_wr / crd / caddr_rd signals for memory RW //
-
-   // Write the convolution results to Layer 0
-   wire [`LOCAL_IDX_WIDTH-1:0] out_row_offset = row_idx * 64;
-   wire [7:0] 		       conv_out_idx = local_idx;
-   wire [0:1] 		       wr_conv_sel = {(conv_out_idx < `OUT_BUFFER_SIZE) ? 1'b1 : 1'b0, (conv_out_idx >= `OUT_BUFFER_SIZE && conv_out_idx < 2*`OUT_BUFFER_SIZE) ? 1'b1 : 1'b0};
-
-   // Generate read address to Layer 0
-   wire [0:1] 		       layer0_addr_sel = {(local_idx < 4096) ? 1'b1 : 1'b0, (local_idx >= 4096 && local_idx < 2*4096) ? 1'b1 : 1'b0};
-
-   // Write pooling results
-   wire [0:1] 		       pool_mem_sel = {(local_idx < 1024) ? 1'b1 : 1'b0, (local_idx >= 1024 && local_idx < 2*1024) ? 1'b1 : 1'b0};
-   wire [10:0] 		       max_pool_idx = local_idx;
-
-   // Write flattening results
-   wire [0:1] 		       flat_mem_sel = {(local_idx < 1024) ? 1'b1 : 1'b0, (local_idx >= 1024 && local_idx < 2*1024) ? 1'b1 : 1'b0};
    wire [`LOCAL_IDX_WIDTH-1:0] double_local_idx = {local_idx[`LOCAL_IDX_WIDTH-2:0], 1'b0};
+   wire [10:0] max_pool_idx = local_idx;
+   wire [7:0] conv_out_idx = local_idx;
+   wire [`LOCAL_IDX_WIDTH-1:0] out_row_offset = row_idx * 64;
 
-   always @(posedge clk) begin
-      case({flags[`F_WRITE_CONV_ENB], flags[`F_GEN_CONV_ADDR], flags[`F_WRITE_POOL_ENB], flags[`F_WRITE_FLAT_ENB]}) //synopsys full_case
-
-        // flags[`F_WRITE_CONV_ENB]
-        4'b1000: begin
-           case(wr_conv_sel) //synopsys full_case
-             2'b10: begin // Write kernel 0 conv result to Layer 0
-                cwr <= 1'b1;
-                csel <= 3'b001;
-                caddr_wr <= out_row_offset + conv_out_idx;
-                cdata_wr <= conv_out_fifo_ker0[conv_out_idx];
-             end
-             2'b01: begin // Write kernel 1 conv result to Layer 0
-                cwr <= 1'b1;
-                csel <= 3'b010;
-                caddr_wr <= out_row_offset + (conv_out_idx - `OUT_BUFFER_SIZE);
-                cdata_wr <= conv_out_fifo_ker1[conv_out_idx - `OUT_BUFFER_SIZE];
-             end
-             2'b00: begin
-                cwr <= 1'b0;
-                csel <= 3'b000;
-                caddr_wr <= `EMPTY_ADDR;
-                cdata_wr <= `EMPTY_DATA;
-             end
-           endcase
-           caddr_rd <= `EMPTY_ADDR;
-           crd <= 1'b0;
+   always @(posedge clk, posedge reset) begin
+      if(reset) begin
+          cwr <= 1'b0;
+          csel <= 3'b000;
+          caddr_wr <= `EMPTY_ADDR;
+          cdata_wr <= `EMPTY_DATA;
+          caddr_rd <= `EMPTY_ADDR;
+          crd <= 1'b0;
+      end else if(flags[`F_WRITE_CONV_ENB]) begin
+          caddr_rd <= `EMPTY_ADDR;
+          crd <= 1'b0;
+          cwr <= 1'b1;
+          if(conv_out_idx < `OUT_BUFFER_SIZE) begin
+            csel <= 3'b001;
+            caddr_wr <= out_row_offset + conv_out_idx;
+            cdata_wr <= conv_out_fifo_ker0[conv_out_idx];
+          end else if(conv_out_idx >= `OUT_BUFFER_SIZE && conv_out_idx < 2*`OUT_BUFFER_SIZE) begin
+            csel <= 3'b010;
+            caddr_wr <= out_row_offset + (conv_out_idx - `OUT_BUFFER_SIZE);
+            cdata_wr <= conv_out_fifo_ker1[conv_out_idx - `OUT_BUFFER_SIZE];
+          end
+      end else if(flags[`F_GEN_CONV_ADDR]) begin
+        caddr_wr <= `EMPTY_ADDR;
+        cdata_wr <= `EMPTY_DATA;
+        cwr <= 1'b0;
+        crd <= 1'b1;
+        if(local_idx < 4096) begin
+          csel <= 3'b001;
+          caddr_rd <= local_idx;
+        end else if(local_idx >= 4096 && local_idx < 2*4096) begin
+          csel <= 3'b010;
+          caddr_rd <= (local_idx - 4096);
         end
-
-        // flags[`F_GEN_CONV_ADDR]
-        4'b0100: begin
-           case(layer0_addr_sel) //synopsys full_case
-             2'b10: begin // Read layer 0 results computed by kernel 0
-                crd <= 1'b1;
-                csel <= 3'b001;
-                caddr_rd <= local_idx;
-             end
-             2'b01: begin // Read layer 0 results computed by kernel 1
-                crd <= 1'b1;
-                csel <= 3'b010;
-                caddr_rd <= (local_idx - 4096);
-             end
-             2'b00: begin
-                crd <= 1'b0;
-                csel <= 3'b000;
-                caddr_rd <= `EMPTY_ADDR;
-             end
-           endcase
-           caddr_wr <= `EMPTY_ADDR;
-           cdata_wr <= `EMPTY_DATA;
-           cwr <= 1'b0;
+      end else if(flags[`F_WRITE_POOL_ENB]) begin
+        caddr_rd <= `EMPTY_ADDR;
+        crd <= 1'b0;
+        cwr <= 1'b1;
+        if(local_idx < 1024)begin
+          csel <= 3'b011;
+          caddr_wr <= local_idx;
+          cdata_wr <= max_pool_ker0[max_pool_idx];
+        end else if(local_idx >= 1024 && local_idx < 2*1024) begin
+          csel <= 3'b100;
+          caddr_wr <= (local_idx - 1024);
+          cdata_wr <= max_pool_ker1[max_pool_idx - 1024];
         end
-
-        // flags[`F_WRITE_POOL_ENB]
-        4'b0010: begin
-           case(pool_mem_sel) //synopsys full_case
-             2'b10: begin // Write pooling results computed by kernel 0
-                cwr <= 1'b1;
-                csel <= 3'b011;
-                caddr_wr <= local_idx;
-                cdata_wr <= max_pool_ker0[max_pool_idx];
-             end
-             2'b01: begin // Write pooling results computed by kernel 1
-                cwr <= 1'b1;
-                csel <= 3'b100;
-                caddr_wr <= (local_idx - 1024);
-                cdata_wr <= max_pool_ker1[max_pool_idx - 1024];
-             end
-             2'b00: begin
-                cwr <= 1'b0;
-                csel <= 3'b000;
-                caddr_wr <= `EMPTY_ADDR;
-                cdata_wr <= `EMPTY_DATA;
-             end
-           endcase
-           caddr_rd <= `EMPTY_ADDR;
-           crd <= 1'b0;
+      end else if(flags[`F_WRITE_FLAT_ENB]) begin
+        caddr_rd <= `EMPTY_ADDR;
+        crd <= 1'b0;
+        cwr <= 1'b1;
+        if(local_idx < 1024) begin
+          csel <= 3'b101; // Write to layer 2 (flattening layer)
+          caddr_wr <= double_local_idx;
+          cdata_wr <= max_pool_ker0[max_pool_idx];
+        end else if(local_idx >= 1024 && local_idx < 2*1024) begin
+          csel <= 3'b101; // Write to layer 2 (flattening layer)
+          caddr_wr <= (double_local_idx - 2*1024 + 1);
+          cdata_wr <= max_pool_ker1[max_pool_idx - 1024];
         end
-
-        // flags[`F_WRITE_FLAT_ENB]
-        4'b0001: begin
-           case(flat_mem_sel) //synopsys full_case
-             2'b10: begin // Write kernel 0 pooling results to even address
-                cwr <= 1'b1;
-                csel <= 3'b101; // Write to layer 2 (flattening layer)
-                caddr_wr <= double_local_idx;
-                cdata_wr <= max_pool_ker0[max_pool_idx];
-             end
-             2'b01: begin // Write kernel 1 pooling results to odd address
-                cwr <= 1'b1;
-                csel <= 3'b101; // Write to layer 2 (flattening layer)
-                caddr_wr <= (double_local_idx - 2*1024 + 1);
-                cdata_wr <= max_pool_ker1[max_pool_idx - 1024];
-             end
-             2'b00: begin
-                cwr <= 1'b0;
-                csel <= 3'b000;
-                caddr_wr <= `EMPTY_ADDR;
-                cdata_wr <= `EMPTY_DATA;
-             end
-           endcase
-           caddr_rd <= `EMPTY_ADDR;
-           crd <= 1'b0;
-        end
-
-      endcase
-
+      end else begin
+        cwr <= 1'b0;
+        csel <= 3'b000;
+        caddr_wr <= `EMPTY_ADDR;
+        cdata_wr <= `EMPTY_DATA;
+        caddr_rd <= `EMPTY_ADDR;
+        crd <= 1'b0;
+      end
    end
 
 endmodule
