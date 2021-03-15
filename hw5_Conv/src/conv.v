@@ -30,8 +30,8 @@ output reg [31:0] M0_W_data;
 output reg [31:0] M1_W_data;
 
 // Local index iterator
-reg [9:0] local_idx = 10'h000;
-reg local_idx_rst = 0;
+reg [`LOCAL_IDX_WIDTH-1:0] local_idx = `LOCAL_IDX_WIDTH'h000;
+reg local_idx_rst;
 
 // Global index iterator
 reg [11:0] global_idx = 12'h000;
@@ -222,7 +222,6 @@ always @(posedge clk) begin // Generating read input sequence 0-1-2-28-29-30-56-
 end
 
 // Triggered by gen_read_w_addr_sig and gen_read_in_addr_sig
-wire [31:0] void_data = 32'h00C0FFEE;
 wire [27:0] mod26_mul = global_idx * 16'h09D9;
 wire [7:0] row_offset = {mod26_mul[22:16], 1'b0}; // global_idx % 26
 wire [11:0] idx = global_idx + block_offset + row_offset;
@@ -254,7 +253,7 @@ always @(posedge clk) begin // Generate read request and read address to M0 BRAM
         default: begin
             M0_R_req <= 0;
             M0_W_req <= 4'b0000;
-            M0_addr <= void_data;
+            M0_addr <= `EMPTY_ADDR;
             read_w_enb <= 0;
             read_in_enb <= 0;
         end
@@ -351,12 +350,12 @@ wire [1:0] add_idx = local_idx[1:0];
 always @(posedge clk) begin // Compute add results
     if(add_rst == 1) begin
         for(k=0 ; k<=4 ; k=k+1) begin
-            partial_sum_1[k] <= void_data;
+            partial_sum_1[k] <= `EMPTY_ADDR;
         end
         for(m=0 ; m<=2 ; m=m+1) begin
-            partial_sum_2[m] <= void_data;
+            partial_sum_2[m] <= `EMPTY_ADDR;
         end
-        res <= void_data;
+        res <= `EMPTY_ADDR;
     end
     else if(add_enb == 1) begin
         case(add_idx)
@@ -373,7 +372,7 @@ always @(posedge clk) begin // Compute add results
                 partial_sum_2[2] <= (add_enb == 1) ? partial_sum_1[4] : partial_sum_2[2];
             end
             2'b10: begin
-                res <= (add_enb == 1) ? (partial_sum_2[0] + partial_sum_2[1] + partial_sum_2[2]) : void_data;
+                res <= (add_enb == 1) ? (partial_sum_2[0] + partial_sum_2[1] + partial_sum_2[2]) : `EMPTY_ADDR;
             end
             default:
                 ;
@@ -388,13 +387,14 @@ always @(posedge clk) begin // Write conv results
         M1_W_req <= 4'b1111;
         M1_R_req <= 1;
         M1_addr <= {18'b0, global_idx, 2'b0};
+
         M1_W_data <= res;
     end
     else begin
         M1_W_req <= 4'b0000;
         M1_R_req <= 0;
-        M1_addr <= void_data;
-        M1_W_data <= void_data;
+        M1_addr <= `EMPTY_ADDR;
+        M1_W_data <= `EMPTY_ADDR;
     end
 end
 

@@ -61,10 +61,10 @@ printf "$def_pattern" "\`define IN_BUFFER_SIZE"       "$IN_BUFFER_SIZE"
 printf "$def_pattern" "\`define OUT_BUFFER_SIZE"      "$OUT_BUFFER_SIZE"
 printf "$def_pattern" "\`define READ_MEM_DELAY"       "2'd2"
 
-printf "$def_pattern" "\`define EMPTY_ADDR"           "{12{1'b0}}"
+printf "$def_pattern" "\`define EMPTY_ADDR"           "{32{1'b0}}"
 printf "$def_pattern" "\`define EMPTY_DATA"           "{20{1'b0}}"
 
-printf "$def_pattern" "\`define LOCAL_IDX_WIDTH"      "16"
+printf "$def_pattern" "\`define LOCAL_IDX_WIDTH"      "10"
 printf "$def_pattern" "\`define DATA_WIDTH"           "20"
 
 # Generate end macro
