@@ -208,10 +208,6 @@ always @(*) begin
             busy = 0;
         end 
 
-        default: begin
-            busy = 0;
-        end
-
     endcase
 end // Output Logic (C)
 
