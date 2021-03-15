@@ -2,13 +2,14 @@
 set_host_options -max_cores 16
 
 # Read all Files
-set top conv
-read_verilog ../src/${top}.v
+set top CONV
+#read_verilog ../src/${top}.v
+read_file -autoread -top ${top} -recursive {../src} -library ${top}
 current_design ${top}
 link
 
 # Setting Clock Constraits
-source -echo -verbose ../dc/${top}.sdc
+source -echo -verbose ../script/${top}.sdc
 
 set high_fanout_net_threshold 0
  
@@ -44,3 +45,4 @@ report_area > area.log
 report_timing > timing.log
 report_qor > ${top}_syn.qor
 
+exit
