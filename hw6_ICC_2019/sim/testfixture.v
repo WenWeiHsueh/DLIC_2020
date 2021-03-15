@@ -3,7 +3,7 @@
 `define End_CYCLE  100000000               // Modify cycle times once your design need more cycle times!
 
 // Modify your "dat" directory path
-`define PAT        "./cnn_sti.dat"           
+`define PAT        "./cnn_sti.dat"
 `define L0_EXP0    "./cnn_layer0_exp0.dat"
 `define L0_EXP1    "./cnn_layer0_exp1.dat"
 `define L1_EXP0    "./cnn_layer1_exp0.dat"
