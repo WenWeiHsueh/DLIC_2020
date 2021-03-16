@@ -76,13 +76,3 @@ post: $(BUILD)
 # Remove all files
 clean:
 	rm -rf $(BUILD_DIR) $(SYN_DIR) $(REPORT_DIR) *.log
-
-syn0:$(BUILD)
-	cd $(BUILD); \
-	cp $(ROOTDIR)/$(SIM)/golden.hex $(ROOTDIR)/$(SIM)/input.hex ./;\
-	cp $(ROOTDIR)/$(SYNDIR)/conv_syn.sdf .;\
-	ncverilog  $(ROOTDIR)/$(SIM)/$(TOP).v $(ROOTDIR)/$(SYNDIR)/conv_syn.v $(ROOTDIR)/$(SRC)/bram_sim.v -v $(ROOTDIR)/$(SIM)/tsmc13_neg.v \
-	+nc64bit \
-	+access+r \
-	+define+FSDB \
-	+define+SDF
