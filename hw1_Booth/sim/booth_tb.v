@@ -1,5 +1,5 @@
 `timescale 1ns / 10ps
-`define CYCLE 15
+`define CYCLE 30 
 module booth_tb;
   parameter width = 6;
   
@@ -10,8 +10,6 @@ module booth_tb;
   wire [width-1:0] cnt;
   wire [2*width-1:0] prod;
   wire [1:0] CurrentState;
-  wire clk;
-  wire rst; 
   
   integer num = 1;
   integer i;
@@ -19,7 +17,6 @@ module booth_tb;
   integer ans;
   integer err = 0;
   
-//  booth booth(.out(out), .in1(in1), .in2(in2), .cnt(cnt), .prod(prod), .CurrentState(CurrentState), .clk(clk), .rst(rst));
   booth booth(.out(out), .in1(in1), .in2(in2));
   initial begin
     for(i = (-(1<<width-1)+1); i < (1<<width-1); i = i+1) begin
@@ -46,14 +43,14 @@ module booth_tb;
       $display("There are %d errors!", err);
     end
     
-    #10 $stop;
+    #10 $finish;
   end 
 
   initial begin
-      `ifdef fsdb
-          $fsdbDumpfile("booth.fsdb");
-          $fsdbDumpvars;
-          $fsdbDumpMDA;
-      `endif
+    $shm_open(`SHM_FILE);
+    $shm_probe("ASM");
+    $fsdbDumpfile(`FSDB_FILE);
+    $fsdbDumpvars;
+    $fsdbDumpMDA;
   end
 endmodule

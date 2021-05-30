@@ -14,7 +14,7 @@ integer i;
 
 assign out = p[2*DATA_WIDTH:1];
 
-always@ (in1 or in2) begin
+always@ (*) begin
 
     p = {{DATA_WIDTH{1'b0}}, in2, 1'b0};
 
@@ -26,7 +26,7 @@ always@ (in1 or in2) begin
             2'b10:
                 p[2*DATA_WIDTH:DATA_WIDTH+1] = p[2*DATA_WIDTH:DATA_WIDTH+1] - in1;
             default:
-                p[2*DATA_WIDTH:DATA_WIDTH+1] = p[2*DATA_WIDTH:DATA_WIDTH+1] + {DATA_WIDTH{1'b0}};
+                p[2*DATA_WIDTH:DATA_WIDTH+1] = p[2*DATA_WIDTH:DATA_WIDTH+1];
         endcase
 
         p = {p[2*DATA_WIDTH], p} >> 1;
