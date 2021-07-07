@@ -13,7 +13,8 @@ TB_TOP             =booth_tb
 TOP                =booth
 
 SRC=$(shell ls $(SRC_DIR)/*.v)
-TB_SRC=$(shell ls $(SIM_DIR)/*.v)
+
+TB_SRC=$(SIM_DIR)/.
 
 .PHONY: default init check rtl nw sv syn syn_init autosyn post post_sv clean gen_def
 
@@ -43,11 +44,15 @@ syn_init:
 
 # Generate header
 gen_def:
-	sh $(SRC_DIR)/gen_def.sh > $(SRC_DIR)/def.v
+	sh $(SRC_DIR)/gen_def.sh > $(SRC_DIR)/def.v; \
 
-cp_tb_src:
+cp_tb_src: gen_hex
 	cd $(BUILD_DIR); \
-	cp $(TB_SRC) .;
+#	cp $(TB_SRC) .;
+
+# Add your script here
+gen_hex:
+	cd sw;
 
 # Check HDL syntax
 check:
@@ -83,6 +88,7 @@ syn: $(BUILD) syn_init
 
 # Auto run synthesize with Design Compiler
 autosyn: $(BUILD) syn_init
+	rm -rf $(SYN_DIR)/*; \
 	cd $(BUILD_DIR); \
 	cp $(SCRIPT_DIR)/synopsys_dc.setup $(BUILD_DIR)/.synopsys_dc.setup; \
 	nohup dcnxt_shell -f $(SCRIPT_DIR)/synthesize.tcl &> $(ROOT_DIR)/nohup.log &
@@ -91,14 +97,13 @@ autosyn: $(BUILD) syn_init
 post: $(BUILD) cp_tb_src syn_init
 	cd $(BUILD_DIR); \
 	cp $(SYN_DIR)/$(TOP)_syn.sdf $(BUILD_DIR); \
-ncverilog $(SIM_DIR)/$(TB_TOP).v $(SYN_DIR)/$(TOP)_syn.v -v $(SIM_DIR)/tsmc13_neg.v \
+	ncverilog $(SIM_DIR)/$(TB_TOP).v $(SYN_DIR)/$(TOP)_syn.v -v $(SIM_DIR)/tsmc13_neg.v \
 	+nc64bit \
 	+access+r \
 	+define+SHM_FILE=\"$(TOP).shm\" \
 	+define+FSDB_FILE=\"$(TOP).fsdb\" \
 	+define+SDF \
-	+define+SDFFILE=\"$(SYN_DIR)/$(TOP)_syn.sdf\";
-
+	+define+SDFFILE=\"$(SYN_DIR)/$(TOP)_syn.sdf\"
 
 # View waveform using simvision
 post_sv: $(BUILD)
@@ -108,8 +113,9 @@ post_sv: $(BUILD)
 # Run ICC APR flow
 apr: syn_init
 	cp $(SYN_DIR)/$(TOP)_syn.v $(APR_DIR)/design_data/CHIP_syn.v
-	cp $(SCRIPT_DIR)/$(TOP)_APR.sdc $(APR_DIR)/design_data/CHIP.sdc
+		cp $(SCRIPT_DIR)/$(TOP)_APR.sdc $(APR_DIR)/design_data/CHIP.sdc
 
 # Remove all files
 clean:
 	rm -rf $(BUILD_DIR) $(SYN_DIR) $(REPORT_DIR) *.log
+
