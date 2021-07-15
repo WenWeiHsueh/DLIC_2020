@@ -9,14 +9,14 @@ input wire [7:0] X;
 output reg [9:0] Y;
 
 // Counter that counts two cycles of reset signal
-reg [2:0] RstCounter = 0;
+reg [2:0] rst_cnt;
 // Internal state counter
-reg [3:0] cnt = 4'h0;
+reg [3:0] cnt;
 // A buffer for SISO shifter
 reg [7:0] buffer [8:0];
 
 // FSM state register
-reg [1:0] CurrentState, NextState;
+reg [1:0] curr_state, next_state;
 // FSM state declaration
 parameter [1:0]
           READY_STATE = 2'b00,
@@ -24,22 +24,22 @@ parameter [1:0]
           OUTPUT_STATE = 2'b10;
 
 // State register (S)
-always @(posedge clk) begin
+always @(posedge clk, posedge reset) begin
     if (reset) begin
-        CurrentState <= READY_STATE;
+        curr_state <= READY_STATE;
     end
     else begin
-        CurrentState <= NextState;
+        curr_state <= next_state;
     end
 end
 
 //  Counter increment
 always @(posedge clk) begin
-    if (reset == 1) begin
-        RstCounter <= RstCounter + 1;
+    if (reset) begin
+        rst_cnt <= rst_cnt + 1;
     end
     else begin
-        RstCounter <= 0;
+        rst_cnt <= 0;
         if (cnt == 4'h9)
             cnt <= 4'h9;
         else
@@ -48,25 +48,25 @@ always @(posedge clk) begin
 end
 
 // Next state logic (Comb)
-always @(CurrentState or RstCounter or cnt) begin
-    case(CurrentState)
+always @(curr_state or rst_cnt or cnt) begin
+    case(curr_state)
         READY_STATE: begin
-            if (RstCounter != 2)
-                NextState = READY_STATE;
+            if (rst_cnt != 2)
+                next_state = READY_STATE;
             else // Jump to next state if 2 reset cycles have been counted
-                NextState = READ_STATE;
+                next_state = READ_STATE;
         end
         READ_STATE: begin
             if (cnt != 9)
-                NextState = READ_STATE;
+                next_state = READ_STATE;
             else begin // Jump to next state if 9 bits have been read
-                NextState = OUTPUT_STATE;
+                next_state = OUTPUT_STATE;
             end
         end
         OUTPUT_STATE:
-            NextState = OUTPUT_STATE;
+            next_state = OUTPUT_STATE;
         default:
-            NextState = READY_STATE;
+            next_state = READY_STATE;
     endcase
 end
 
@@ -83,12 +83,12 @@ wire [8:0] xAvg = (bufferSum * 32'h1C71C71D) >> 32;
 wire [9:0] OutputY = (xAppr * 9 + bufferSum) >> 3;
 
 // Output logic (Comb) for OutputY
-always @(CurrentState or buffer[8] or xAvg or diff) begin
+always @(curr_state or buffer[8] or xAvg or diff) begin
 
     diff  = 9'h0FF;
     xAppr     = 9'h000;
     approxIdx = 0;
-    case(CurrentState)
+    case(curr_state)
         READY_STATE:
             ;
         READ_STATE:
