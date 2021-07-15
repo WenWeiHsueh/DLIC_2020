@@ -4,7 +4,7 @@
 `define INFILE "in.dat"
 `define OUTFILE "out_golden.dat"  
 
-module test;
+module testfixture;
 parameter INPUT_DATA = `INFILE;
 parameter GOLDEN = `OUTFILE;
 parameter N_PAT = 2000;
