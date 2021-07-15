@@ -1,18 +1,15 @@
 `include "def.v"
 
-module convCtrl (
-           input   wire    clk,
-           input   wire    reset,
-           output  reg     busy,
-           input   wire    ready,
-
-           input   wire    [`LOCAL_IDX_WIDTH-1:0] local_idx,
-           output  reg     local_idx_rst,
-
-           input   wire    [7:0] row_idx,
-
-           output  reg     [`FLAG_WIDTH-1:0] flags
-       );
+module ctrl (
+  input                                 clk,
+  input                                 reset,
+  output reg                            busy,
+  input                                 ready,
+  input          [`LOCAL_IDX_WIDTH-1:0] local_idx,
+  output reg                            local_idx_rst,
+  input                           [7:0] row_idx,
+  output reg          [`FLAG_WIDTH-1:0] flags
+);
 
 // State Register (S)
 reg [`STATE_W-1:0] curr_state, next_state;

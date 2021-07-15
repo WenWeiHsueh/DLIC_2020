@@ -1,0 +1,29 @@
+`include "def.v"
+
+// kernel weight 0 (hardcode)
+wire signed [`DATA_WIDTH-1:0]      w_mem0 [0:8];
+assign w_mem0[0] = 20'h0A89E;
+assign w_mem0[1] = 20'h092D5;
+assign w_mem0[2] = 20'h06D43;
+assign w_mem0[3] = 20'h01004;
+assign w_mem0[4] = 20'hF8F71;
+assign w_mem0[5] = 20'hF6E54;
+assign w_mem0[6] = 20'hFA6D7;
+assign w_mem0[7] = 20'hFC834;
+assign w_mem0[8] = 20'hFAC19;
+// bias 0 (hardcode)
+wire signed [`DATA_WIDTH-1:0]      b_0 = 20'h01310;
+
+// kernel weight 1 (hardcode)
+wire signed [`DATA_WIDTH-1:0]      w_mem1 [0:8];
+assign w_mem1[0] = 20'hFDB55;
+assign w_mem1[1] = 20'h02992;
+assign w_mem1[2] = 20'hFC994;
+assign w_mem1[3] = 20'h050FD;
+assign w_mem1[4] = 20'h02F20;
+assign w_mem1[5] = 20'h0202D;
+assign w_mem1[6] = 20'h03BD7;
+assign w_mem1[7] = 20'hFD369;
+assign w_mem1[8] = 20'h05E68;
+// bias 1 (hardcode)
+wire signed [`DATA_WIDTH-1:0]      b_1 = 20'hF7295;

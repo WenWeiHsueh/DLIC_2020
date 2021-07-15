@@ -1,23 +1,23 @@
 `include "def.v"
 
 module  CONV(
-            input         wire         clk,
-            input         wire         reset,
-            output        wire         busy,
-            input         wire         ready,
+  input                                 clk,
+  input                                 reset,
+  output                                busy,
+  input                                 ready,
 
-            output        wire         [11:0] iaddr,
-            input         wire         [19:0] idata,
-            output        wire         cwr,
-            output        wire         [11:0] caddr_wr,
-            output        wire         [19:0] cdata_wr,
+  output                         [11:0] iaddr,
+  input                          [19:0] idata,
+  output                                cwr,
+  output                         [11:0] caddr_wr,
+  output                         [19:0] cdata_wr,
 
-            output        wire         crd,
-            output        wire         [11:0] caddr_rd,
-            input         wire         [19:0] cdata_rd,
+  output                                crd,
+  output                         [11:0] caddr_rd,
+  input                          [19:0] cdata_rd,
 
-            output        wire         [2:0] csel
-        );
+  output                          [2:0] csel
+);
 
 // Flags
 wire [`FLAG_WIDTH-1:0] flags;
@@ -40,7 +40,6 @@ always @(posedge clk) begin
     else
         local_idx <= local_idx + 1'b1;
 end
-
 
 // Catch the negedge of flags[`F_WRITE_CONV_ENB]
 reg sample_conv_enb;
@@ -70,7 +69,7 @@ always @(posedge clk, posedge sync_reset) begin
 end
 
 // Controller
-convCtrl conv_controller (
+ctrl conv_controller (
     .clk(clk), 
     .reset(sync_reset), 
     .busy(busy),
@@ -82,7 +81,7 @@ convCtrl conv_controller (
 );
 
 // Convolution Data Path
-convDataPath conv_data_path (
+dp conv_data_path (
     .clk(clk),
     .reset(reset),
     .iaddr(iaddr), 
