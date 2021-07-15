@@ -1,48 +1,51 @@
 `include "def.v"
 
 module conv(
-           clk,
-           rst,
-           M0_R_req,
-           M0_W_req,
-           M0_addr,
-           M0_R_data,
-           M0_W_data,
-           M1_R_req,
-           M1_W_req,
-           M1_addr,
-           M1_R_data,
-           M1_W_data,
-           start,
-           finish
-       );
-// Read from M0 cell, write to M1 cell
-input clk, rst, start;
-input wire [31:0] M0_R_data, M1_R_data;
-output reg finish;
-output reg [31:0] M0_addr;
-output reg [31:0] M1_addr;
-output reg M0_R_req;
-output reg M1_R_req;
-output reg [3:0] M0_W_req;
-output reg [3:0] M1_W_req;
-output reg [31:0] M0_W_data;
-output reg [31:0] M1_W_data;
+  input                                 clk, rst, start,
+  input                          [31:0] M0_R_data, M1_R_data,
+  output reg                            finish,
+  output reg                     [31:0] M0_addr,
+  output reg                     [31:0] M1_addr,
+  output reg                            M0_R_req,
+  output reg                            M1_R_req,
+  output reg                      [3:0] M0_W_req,
+  output reg                      [3:0] M1_W_req,
+  output reg                     [31:0] M0_W_data,
+  output reg                     [31:0] M1_W_data
+);
+
+/* Read from M0 cell, write to M1 cell !!! */
 
 // Local index iterator
-reg [`LOCAL_IDX_WIDTH-1:0] local_idx = `LOCAL_IDX_WIDTH'h000;
-reg local_idx_rst;
+reg              [`LOCAL_IDX_WIDTH-1:0] local_idx = `LOCAL_IDX_WIDTH'h000;
+reg                                     local_idx_rst;
 
 // Global index iterator
-reg [11:0] global_idx = 12'h000;
-reg global_idx_rst = 0;
+reg                              [11:0] global_idx = 12'h000;
+reg                                     global_idx_rst;
 
 // Internal memory
-reg [15:0] input_mem [0:8];
-reg signed [31:0] weight_mem_signed [0:9];
+reg                              [15:0] input_mem [0:8];
+reg signed                       [31:0] weight_mem_signed [0:9];
 
+wire                                    read_w_done, read_in_done, mul_done, 
+                                        add_done, write_done, finish_cond;
+reg                                     gen_read_w_addr_sig, 
+                                        gen_read_in_addr_sig, 
+                                        write_enb, mult_enb,
+                                        add_enb, add_rst, mul_rst;
+
+reg                                     read_in_enb;
+reg                               [7:0] block_offset;
+wire                              [7:0] block_offset_next;
+
+
+wire                             [27:0] mod26_mul;
+wire                              [7:0] row_offset;
+wire                             [11:0] idx;
+reg                                     read_w_enb;
 // FSM state
-reg [`STATE_W-1:0] curr_state, next_state;
+reg                      [`STATE_W-1:0] curr_state, next_state;
 
 // State register (S)
 always @(posedge clk) begin
@@ -52,162 +55,144 @@ always @(posedge clk) begin
         curr_state <= next_state;
 end
 
+assign read_w_done = (local_idx == 12);
+assign read_in_done = (local_idx == 11);
+assign mul_done = (local_idx == 9);
+assign add_done = (local_idx == 3);
+assign write_done = (local_idx == 1);
+assign finish_cond = (global_idx == 676);
+
 // Next state logic (C)
-wire read_w_done = (local_idx == 12);
-wire read_in_done = (local_idx == 11);
-wire mul_done = (local_idx == 9);
-wire add_done = (local_idx == 3);
-wire write_done = (local_idx == 1);
-wire finish_cond = (global_idx == 676);
-
-reg   gen_read_w_addr_sig;
-reg   gen_read_in_addr_sig;
-reg   write_enb;
-reg   mult_enb;
-reg   add_enb;
-reg   add_rst;
-reg   mul_rst;
-
 always @(*) begin
     next_state = `S_INIT;
 
-    case(1'b1) // synthesis parallel_case
+    case(1'b1)
 
         curr_state[`S_READY]: begin
-            if(start == 1)
-                next_state[`S_READ_WEIGHT] = 1'b1;
-            else
-                next_state[`S_READY] = 1'b1;
+          if(start == 1)
+            next_state[`S_READ_WEIGHT] = 1'b1;
+          else
+            next_state[`S_READY] = 1'b1;
         end
 
         curr_state[`S_READ_WEIGHT]: begin
-            if(read_w_done)
-                next_state[`S_READ_INPUT] = 1'b1;
-            else
-                next_state[`S_READ_WEIGHT] = 1'b1;
+          if(read_w_done)
+            next_state[`S_READ_INPUT] = 1'b1;
+          else
+            next_state[`S_READ_WEIGHT] = 1'b1;
         end
 
         curr_state[`S_READ_INPUT]: begin
-            if(read_in_done)
-                next_state[`S_MULTIPLY] = 1'b1;
-            else
-                next_state[`S_READ_INPUT] = 1'b1;
+          if(read_in_done)
+            next_state[`S_MULTIPLY] = 1'b1;
+          else
+            next_state[`S_READ_INPUT] = 1'b1;
         end
 
         curr_state[`S_MULTIPLY]: begin
-            if(mul_done)
-                next_state[`S_ADD] = 1'b1;
-            else
-                next_state[`S_MULTIPLY] = 1'b1;
+          if(mul_done)
+            next_state[`S_ADD] = 1'b1;
+          else
+            next_state[`S_MULTIPLY] = 1'b1;
         end
 
         curr_state[`S_ADD]: begin
-            if(add_done)
-                next_state[`S_WRITE] = 1'b1;
-            else
-                next_state[`S_ADD] = 1'b1;
+          if(add_done)
+            next_state[`S_WRITE] = 1'b1;
+          else
+            next_state[`S_ADD] = 1'b1;
         end
 
         curr_state[`S_WRITE]: begin
-            case({write_done, finish_cond})
-                2'b00:
-                    next_state[`S_WRITE] = 1'b1;
-                2'b10:
-                    next_state[`S_READ_INPUT] = 1'b1;
-                2'b11:
-                    next_state[`S_FINISH] = 1'b1;
-                default:
-                    next_state[`S_FINISH] = 1'b1;
-            endcase
+          case({write_done, finish_cond})
+            2'b00:
+              next_state[`S_WRITE] = 1'b1;
+            2'b10:
+              next_state[`S_READ_INPUT] = 1'b1;
+            2'b11:
+              next_state[`S_FINISH] = 1'b1;
+            default:
+              next_state[`S_FINISH] = 1'b1;
+          endcase
         end
 
         curr_state[`S_FINISH]: begin
-            next_state[`S_FINISH] = 1'b1;
+          next_state[`S_FINISH] = 1'b1;
         end
 
         default: begin
-            next_state[`S_READY] = 1'b1;
+          next_state[`S_READY] = 1'b1;
         end
     endcase
 end
 
 // Output logic (C)
 always @(*) begin
-    global_idx_rst = 0;
-    local_idx_rst = 0;
-    finish = 0;
-    gen_read_w_addr_sig = 0;
-    gen_read_in_addr_sig = 0;
-    write_enb = 0;
-    mult_enb = 0;
-    mul_rst = 0;
-    add_enb = 0;
-    add_rst = 0;
+  global_idx_rst = 0;
+  local_idx_rst = 0;
+  finish = 0;
+  gen_read_w_addr_sig = 0;
+  gen_read_in_addr_sig = 0;
+  write_enb = 0;
+  mult_enb = 0;
+  mul_rst = 0;
+  add_enb = 0;
+  add_rst = 0;
 
-    case(1'b1) // synthesis parallel_case
+  case(1'b1)
+    curr_state[`S_READY]: begin
+      if(start == 1) begin
+        global_idx_rst = 1;
+        local_idx_rst = 1;
+      end
+    end
 
-        curr_state[`S_READY]: begin
-            if(start == 1) begin
-                global_idx_rst = 1;
-                local_idx_rst = 1;
-            end
-        end
+    curr_state[`S_READ_WEIGHT]: begin
+      if(read_w_done)
+        local_idx_rst = 1;
+      else
+        gen_read_w_addr_sig = 1;
+    end
 
-        curr_state[`S_READ_WEIGHT]: begin
-            if(read_w_done)
-                local_idx_rst = 1;
-            else
-                gen_read_w_addr_sig = 1;
-        end
+    curr_state[`S_READ_INPUT]: begin
+      if(read_in_done) begin
+        local_idx_rst = 1;
+        mul_rst = 1;
+      end else
+        gen_read_in_addr_sig = 1;
+    end
 
-        curr_state[`S_READ_INPUT]: begin
-            if(read_in_done) begin
-                local_idx_rst = 1;
-                mul_rst = 1;
-            end
-            else
-                gen_read_in_addr_sig = 1;
-        end
+    curr_state[`S_MULTIPLY]: begin
+      if(mul_done) begin
+        local_idx_rst = 1;
+        add_rst = 1;
+      end else
+        mult_enb = 1;
+    end
 
-        curr_state[`S_MULTIPLY]: begin
-            if(mul_done) begin
-                local_idx_rst = 1;
-                add_rst = 1;
-            end
-            else
-                mult_enb = 1;
-        end
+    curr_state[`S_ADD]: begin
+      if(add_done)
+        local_idx_rst = 1;
+      else
+        add_enb = 1;
+    end
 
-        curr_state[`S_ADD]: begin
-            if(add_done)
-                local_idx_rst = 1;
-            else
-                add_enb = 1;
-        end
+    curr_state[`S_WRITE]: begin
+      case({write_done, finish_cond})
+        2'b00:
+          write_enb = 1;
+        2'b10:
+          local_idx_rst = 1;
+        default: ;
+      endcase
+    end
 
-        curr_state[`S_WRITE]: begin
-            case({write_done, finish_cond})
-                2'b00:
-                    write_enb = 1;
-                2'b10:
-                    local_idx_rst = 1;
-                default:
-                    ;
-            endcase
-        end
-
-        curr_state[`S_FINISH]:
-            finish = 1;
-
-        default:
-            ;
-    endcase
+    curr_state[`S_FINISH]: finish = 1;
+    default: ;
+  endcase
 end
 
-
-reg read_in_enb = 0;
-reg [7:0] block_offset = 8'h00;
-wire [7:0] block_offset_next = block_offset + 1;
+assign block_offset_next = block_offset + 1;
 // Triggered by read_in_enb
 always @(posedge clk) begin // Generating read input sequence 0-1-2-28-29-30-56-57-58
     if(read_in_enb == 1)
@@ -222,10 +207,9 @@ always @(posedge clk) begin // Generating read input sequence 0-1-2-28-29-30-56-
 end
 
 // Triggered by gen_read_w_addr_sig and gen_read_in_addr_sig
-wire [27:0] mod26_mul = global_idx * 16'h09D9;
-wire [7:0] row_offset = {mod26_mul[22:16], 1'b0}; // global_idx % 26
-wire [11:0] idx = global_idx + block_offset + row_offset;
-reg read_w_enb = 0;
+assign mod26_mul = global_idx * 16'h09D9;
+assign row_offset = {mod26_mul[22:16], 1'b0}; // global_idx % 26
+assign idx = global_idx + block_offset + row_offset;
 always @(posedge clk) begin // Generate read request and read address to M0 BRAM
 
     case( {gen_read_w_addr_sig, gen_read_in_addr_sig} )
@@ -301,44 +285,43 @@ wire signed [47:0] mul_48_7 = weight_mem_signed[7] * input_mem_signed_ext[7];
 wire signed [47:0] mul_48_8 = weight_mem_signed[8] * input_mem_signed_ext[8];
 
 always @(posedge clk) begin // Compute multiply results and stores in 48 bits
-    if(mul_rst == 1) begin
-        for(j=0;j<=8;j=j+1) begin
-            mul_48[j] <= 48'h0;
-        end
+  if(mul_rst == 1) begin
+    for(j=0;j<=8;j=j+1) begin
+      mul_48[j] <= 48'h0;
     end
-    else if (mult_enb==1) begin
-        case(mul_idx)
-            4'h0:
-                mul_48[0] <= (mult_enb == 1) ? mul_48_0 : mul_48[0];
-            4'h1:
-                mul_48[1] <= (mult_enb == 1) ? mul_48_1 : mul_48[1];
-            4'h2:
-                mul_48[2] <= (mult_enb == 1) ? mul_48_2 : mul_48[2];
-            4'h3:
-                mul_48[3] <= (mult_enb == 1) ? mul_48_3 : mul_48[3];
-            4'h4:
-                mul_48[4] <= (mult_enb == 1) ? mul_48_4 : mul_48[4];
-            4'h5:
-                mul_48[5] <= (mult_enb == 1) ? mul_48_5 : mul_48[5];
-            4'h6:
-                mul_48[6] <= (mult_enb == 1) ? mul_48_6 : mul_48[6];
-            4'h7:
-                mul_48[7] <= (mult_enb == 1) ? mul_48_7 : mul_48[7];
-            4'h8:
-                mul_48[8] <= (mult_enb == 1) ? mul_48_8 : mul_48[8];
-            default:
-                ;
-        endcase
-    end
+  end
+  else if (mult_enb==1) begin
+    case(mul_idx)
+      4'h0:
+          mul_48[0] <= (mult_enb == 1) ? mul_48_0 : mul_48[0];
+      4'h1:
+          mul_48[1] <= (mult_enb == 1) ? mul_48_1 : mul_48[1];
+      4'h2:
+          mul_48[2] <= (mult_enb == 1) ? mul_48_2 : mul_48[2];
+      4'h3:
+          mul_48[3] <= (mult_enb == 1) ? mul_48_3 : mul_48[3];
+      4'h4:
+          mul_48[4] <= (mult_enb == 1) ? mul_48_4 : mul_48[4];
+      4'h5:
+          mul_48[5] <= (mult_enb == 1) ? mul_48_5 : mul_48[5];
+      4'h6:
+          mul_48[6] <= (mult_enb == 1) ? mul_48_6 : mul_48[6];
+      4'h7:
+          mul_48[7] <= (mult_enb == 1) ? mul_48_7 : mul_48[7];
+      4'h8:
+          mul_48[8] <= (mult_enb == 1) ? mul_48_8 : mul_48[8];
+      default: ;
+    endcase
+  end
 end
 
 // Round off 48 bits results to 32 bits
 reg signed [31:0] mul_32 [0:8];
 integer i;
 always @(*) begin
-    for(i=0;i<=8;i=i+1) begin
-        mul_32[i] <= mul_48[i][47:16] + mul_48[i][15];
-    end
+  for(i=0;i<=8;i=i+1) begin
+    mul_32[i] <= mul_48[i][47:16] + mul_48[i][15];
+  end
 end
 
 // Triggered by add_enb
@@ -348,72 +331,79 @@ reg signed [31:0] res; // final result
 integer k, m;
 wire [1:0] add_idx = local_idx[1:0];
 always @(posedge clk) begin // Compute add results
-    if(add_rst == 1) begin
-        for(k=0 ; k<=4 ; k=k+1) begin
-            partial_sum_1[k] <= `EMPTY_ADDR;
-        end
-        for(m=0 ; m<=2 ; m=m+1) begin
-            partial_sum_2[m] <= `EMPTY_ADDR;
-        end
-        res <= `EMPTY_ADDR;
+  if(add_rst == 1) begin
+    for(k=0 ; k<=4 ; k=k+1) begin
+      partial_sum_1[k] <= `EMPTY_ADDR;
     end
-    else if(add_enb == 1) begin
-        case(add_idx)
-            2'b00: begin
-                partial_sum_1[0] <= (add_enb == 1) ? (mul_32[0] + mul_32[1]) : partial_sum_1[0];
-                partial_sum_1[1] <= (add_enb == 1) ? (mul_32[2] + mul_32[3]) : partial_sum_1[1];
-                partial_sum_1[2] <= (add_enb == 1) ? (mul_32[4] + mul_32[5]) : partial_sum_1[2];
-                partial_sum_1[3] <= (add_enb == 1) ? (mul_32[6] + mul_32[7]) : partial_sum_1[3];
-                partial_sum_1[4] <= (add_enb == 1) ? (mul_32[8] + weight_mem_signed[9]) : partial_sum_1[4];
-            end
-            2'b01: begin
-                partial_sum_2[0] <= (add_enb == 1) ? (partial_sum_1[0] + partial_sum_1[1]) : partial_sum_2[0];
-                partial_sum_2[1] <= (add_enb == 1) ? (partial_sum_1[2] + partial_sum_1[3]) : partial_sum_2[1];
-                partial_sum_2[2] <= (add_enb == 1) ? partial_sum_1[4] : partial_sum_2[2];
-            end
-            2'b10: begin
-                res <= (add_enb == 1) ? (partial_sum_2[0] + partial_sum_2[1] + partial_sum_2[2]) : `EMPTY_ADDR;
-            end
-            default:
-                ;
-        endcase
+    for(m=0 ; m<=2 ; m=m+1) begin
+      partial_sum_2[m] <= `EMPTY_ADDR;
     end
+    res <= `EMPTY_ADDR;
+  end
+  else if(add_enb == 1) begin
+    case(add_idx)
+      2'b00: begin
+         partial_sum_1[0] <= (add_enb == 1) ? (mul_32[0] + mul_32[1]) :
+                                               partial_sum_1[0];
+         partial_sum_1[1] <= (add_enb == 1) ? (mul_32[2] + mul_32[3]) : 
+                                               partial_sum_1[1];
+         partial_sum_1[2] <= (add_enb == 1) ? (mul_32[4] + mul_32[5]) :
+                                               partial_sum_1[2];
+         partial_sum_1[3] <= (add_enb == 1) ? (mul_32[6] + mul_32[7]) :
+                                               partial_sum_1[3];
+         partial_sum_1[4] <= (add_enb == 1) ? (mul_32[8] + weight_mem_signed[9]) :
+                                               partial_sum_1[4];
+      end
+      2'b01: begin
+         partial_sum_2[0] <= (add_enb == 1) ? (partial_sum_1[0] + partial_sum_1[1]) :
+                                               partial_sum_2[0];
+         partial_sum_2[1] <= (add_enb == 1) ? (partial_sum_1[2] + partial_sum_1[3]) :
+                                               partial_sum_2[1];
+         partial_sum_2[2] <= (add_enb == 1) ? partial_sum_1[4] : partial_sum_2[2];
+      end
+      2'b10: begin
+         res <= (add_enb == 1) ?
+               (partial_sum_2[0] + partial_sum_2[1] + partial_sum_2[2]) :
+               `EMPTY_ADDR;
+      end
+      default: ;
+    endcase
+  end
 end
 
 // Triggered by write_enb
 always @(posedge clk) begin // Write conv results
 
-    if(write_enb == 1) begin
-        M1_W_req <= 4'b1111;
-        M1_R_req <= 1;
-        M1_addr <= {18'b0, global_idx, 2'b0};
-
-        M1_W_data <= res;
-    end
-    else begin
-        M1_W_req <= 4'b0000;
-        M1_R_req <= 0;
-        M1_addr <= `EMPTY_ADDR;
-        M1_W_data <= `EMPTY_ADDR;
-    end
+  if(write_enb == 1) begin
+    M1_W_req <= 4'b1111;
+    M1_R_req <= 1;
+    M1_addr <= {18'b0, global_idx, 2'b0};
+    M1_W_data <= res;
+  end
+  else begin
+    M1_W_req <= 4'b0000;
+    M1_R_req <= 0;
+    M1_addr <= `EMPTY_ADDR;
+    M1_W_data <= `EMPTY_ADDR;
+  end
 end
 
 // Triggered by local_idx_rst
 wire [9:0] local_idx_next = local_idx + 1;
 always @(posedge clk) begin // Local index iterator
-    if(local_idx_rst == 1)
-        local_idx <= 0;
-    else
-        local_idx <= local_idx_next;
+  if(local_idx_rst == 1)
+    local_idx <= 0;
+  else
+    local_idx <= local_idx_next;
 end
 
 // Triggered by write_enb
 wire [11:0] global_idx_next = global_idx + 1;
 always @(posedge clk) begin // Global index iteratorx
-    if(global_idx_rst == 1)
-        global_idx <= 12'h0;
-    else
-        global_idx <= ((write_enb == 1) ? global_idx_next : global_idx);
+  if(global_idx_rst == 1)
+    global_idx <= 12'h0;
+  else
+    global_idx <= ((write_enb == 1) ? global_idx_next : global_idx);
 end
 
 endmodule
