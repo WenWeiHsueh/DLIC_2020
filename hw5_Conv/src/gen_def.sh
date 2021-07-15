@@ -69,16 +69,15 @@ printf "$def_pattern" "\`define STATE_W"    "${len}"
 
 # Generate other macro
 printf "\n// Macro from template\n"
-printf "$def_pattern" "\`define BUF_SIZE"             "25"
+printf "$def_pattern" "\`define BUF_SIZE"             "10"
 printf "$def_pattern" "\`define DATA_WIDTH"           "32"
 printf "$def_pattern" "\`define ADDR_WIDTH"           "32"
 printf "$def_pattern" "\`define EMPTY_WORD"           "32'b0"
 printf "$def_pattern" "\`define EMPTY_ADDR"           "32'b0"
 
 printf "\n// Self-defined macro\n"
-printf "$def_pattern" "\`define CNT_W"                "16"
-printf "$def_pattern" "\`define GLB_CNT_W"            "16"
-printf "$def_pattern" "\`define LOC_CNT_W"            "16"
+printf "$def_pattern" "\`define CNT_W"                "4"
+printf "$def_pattern" "\`define GLB_CNT_W"            "5"
 printf "$def_pattern" "\`define IMG_SIZE"             "28"
 # Generate end macro
 printf "\n\`endif\n"
