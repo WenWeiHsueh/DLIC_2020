@@ -1,39 +1,46 @@
-// This is generated automatically on 2021/07/15-11:25:15
-// Check the # of bits for state registers !!!
-// Check the # of bits for flag registers !!!
-
+// This is generated automatically on 2021/07/15-23:17:17
 `ifndef __FLAG_DEF__
 `define __FLAG_DEF__
 
-// There're 8 flags in this design
-`define F_GEN_IN_ADDR          	 0  
-`define F_READ_IN_ENB          	 1  
-`define F_CONV_RELU_ENB        	 2  
-`define F_WRITE_CONV_ENB       	 3  
-`define F_GEN_CONV_ADDR        	 4  
-`define F_READ_CONV_ENB        	 5  
-`define F_WRITE_POOL_ENB       	 6  
-`define F_WRITE_FLAT_ENB       	 7  
-`define FLAG_WIDTH             	 8  
+// There're 6 interrupt flags in this design
+`define INT_WAIT               	 0  
+`define INT_READ_W             	 1  
+`define INT_READ               	 2  
+`define INT_OPT                	 3  
+`define INT_WRITE              	 4  
+`define INT_END                	 5  
+`define INT_FLAG_W             	 6  
 
-// There're 7 states in this design
-`define S_READY                	 0  
-`define S_READ_WEIGHT          	 1  
-`define S_READ_INPUT           	 2  
-`define S_MULTIPLY             	 3  
-`define S_ADD                  	 4  
-`define S_WRITE                	 5  
-`define S_FINISH               	 6  
-`define S_INIT                 	 7'b0
-`define STATE_W                	 7  
+// There're 6 output flags in this design
+`define CMD_WAIT               	 0  
+`define CMD_READ_W             	 1  
+`define CMD_READ               	 2  
+`define CMD_OPT                	 3  
+`define CMD_WRITE              	 4  
+`define CMD_END                	 5  
+`define CMD_FLAG_W             	 6  
 
-// Other macro in this design
-`define IN_BUFFER_SIZE         	 8'd66
-`define OUT_BUFFER_SIZE        	 8'd64
-`define READ_MEM_DELAY         	 2'd2
-`define EMPTY_ADDR             	 {32{1'b0}}
-`define EMPTY_DATA             	 {20{1'b0}}
-`define LOCAL_IDX_WIDTH        	 10 
-`define DATA_WIDTH             	 20 
+// There're 6 states in this design
+`define S_WAIT                 	 0  
+`define S_READ_W               	 1  
+`define S_READ                 	 2  
+`define S_OPT                  	 3  
+`define S_WRITE                	 4  
+`define S_END                  	 5  
+`define S_ZVEC                 	 6'b0
+`define STATE_W                	 6  
+
+// Macro from template
+`define BUF_SIZE               	 25 
+`define DATA_WIDTH             	 32 
+`define ADDR_WIDTH             	 32 
+`define EMPTY_WORD             	 32'b0
+`define EMPTY_ADDR             	 32'b0
+
+// Self-defined macro
+`define CNT_W                  	 16 
+`define GLB_CNT_W              	 16 
+`define LOC_CNT_W              	 16 
+`define IMG_SIZE               	 28 
 
 `endif
