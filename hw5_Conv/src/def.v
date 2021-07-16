@@ -1,4 +1,4 @@
-// This is generated automatically on 2021/07/16-00:05:27
+// This is generated automatically on 2021/07/16-01:36:24
 `ifndef __FLAG_DEF__
 `define __FLAG_DEF__
 
@@ -31,7 +31,7 @@
 `define STATE_W                	 6  
 
 // Macro from template
-`define BUF_SIZE               	 10 
+`define BUF_SIZE               	 9  
 `define DATA_WIDTH             	 32 
 `define ADDR_WIDTH             	 32 
 `define EMPTY_WORD             	 32'b0

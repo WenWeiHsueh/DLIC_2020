@@ -6,23 +6,23 @@ printf "// This is generated automatically on ${timestamp}\n"
 STATES=("S_WAIT"             \
         "S_READ_W"           \
         "S_READ"             \
-        "S_OPT"        \
+        "S_OPT"              \
         "S_WRITE"            \
         "S_END"              \
 )
 
 OUT_FLAGS=("CMD_WAIT"        \
-           "CMD_READ_W"   \
-           "CMD_READ"   \
-           "CMD_OPT"   \
+           "CMD_READ_W"      \
+           "CMD_READ"        \
+           "CMD_OPT"         \
            "CMD_WRITE"       \
            "CMD_END"         \
 )
 
 INT_FLAGS=("INT_WAIT"        \
-           "INT_READ_W"   \
-           "INT_READ"   \
-           "INT_OPT"   \
+           "INT_READ_W"      \
+           "INT_READ"        \
+           "INT_OPT"         \
            "INT_WRITE"       \
            "INT_END"         \
 )
@@ -69,7 +69,7 @@ printf "$def_pattern" "\`define STATE_W"    "${len}"
 
 # Generate other macro
 printf "\n// Macro from template\n"
-printf "$def_pattern" "\`define BUF_SIZE"             "10"
+printf "$def_pattern" "\`define BUF_SIZE"             "9"
 printf "$def_pattern" "\`define DATA_WIDTH"           "32"
 printf "$def_pattern" "\`define ADDR_WIDTH"           "32"
 printf "$def_pattern" "\`define EMPTY_WORD"           "32'b0"

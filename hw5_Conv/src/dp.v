@@ -28,8 +28,8 @@ module dp(
   reg signed        [`DATA_WIDTH-1:0] buff [0:8];
   wire              [`ADDR_WIDTH-1:0] base_r_addr;
   wire              [`ADDR_WIDTH-1:0] base_w_addr;
-  reg signed      [2*`DATA_WIDTH-1:0] accu;
-  wire signed     [2*`DATA_WIDTH-1:0] raw;
+  reg signed        [`DATA_WIDTH-1:0] accu;
+  reg signed      [2*`DATA_WIDTH-1:0] raw;
   wire signed       [`DATA_WIDTH-1:0] truncated;
   
   // S_READ_W
@@ -87,7 +87,7 @@ module dp(
     if(reset)
       int_flags[`INT_READ] <= 1'b0;
     else if (cmd_flags[`CMD_READ])
-      int_flags[`INT_READ] <= (cnt <= 11) ? 1'b0 : 1'b1;
+      int_flags[`INT_READ] <= (cnt <= 8) ? 1'b0 : 1'b1;
     else
       int_flags[`INT_READ] <= 1'b0;
   end
@@ -100,8 +100,10 @@ module dp(
         buff[buff_itr] <= 0;
       end
     end else if(cmd_flags[`CMD_READ]) begin
-      if(cnt >= 2 && cnt <= 10)
-        buff[cnt-2] <= M0_R_data;
+      buff[8] <= M0_R_data;
+      for(buff_itr=0; buff_itr < `BUF_SIZE-1; buff_itr=buff_itr+1) begin
+        buff[buff_itr] <= buff[buff_itr+1];
+      end
     end
   end
 
@@ -115,20 +117,43 @@ module dp(
       int_flags[`INT_OPT] <= 1'b0;
   end
 
-  // accu
-  assign raw = (cnt >= 0 && cnt <= 8) ? (buff[cnt] * w[cnt]) : 0;
+  // accu, raw
   assign truncated = raw[47:16] + raw[15];
   always @(posedge clk) begin
     if(reset) begin
       accu <= 0;
+      raw <= 0;
     end else if(cmd_flags[`CMD_READ]) begin 
       accu <= 0;
+      raw <= 0;
     end else if(cmd_flags[`CMD_OPT]) begin 
-      if(cnt <= 8) begin
-        accu <= accu + truncated;
-      end else if(cnt == 9) begin
-        accu <= accu + w[9];
-      end
+      // raw
+      case(cnt) 
+        0: raw <= buff[0] * w[0];
+        1: raw <= buff[1] * w[1];
+        2: raw <= buff[2] * w[2];
+        3: raw <= buff[3] * w[3];
+        4: raw <= buff[4] * w[4];
+        5: raw <= buff[5] * w[5];
+        6: raw <= buff[6] * w[6];
+        7: raw <= buff[7] * w[7];
+        8: raw <= buff[8] * w[8];
+        default: ;
+      endcase
+      // accu
+      case(cnt) 
+        1: accu <= accu + truncated;
+        2: accu <= accu + truncated;
+        3: accu <= accu + truncated;
+        4: accu <= accu + truncated;
+        5: accu <= accu + truncated;
+        6: accu <= accu + truncated;
+        7: accu <= accu + truncated;
+        8: accu <= accu + truncated;
+        9: accu <= accu + truncated;
+       10: accu <= accu + w[9]; 
+        default: ;
+      endcase
     end
   end
 
