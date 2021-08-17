@@ -9,7 +9,7 @@ config_rtlds -rule  -disable -tag { IDN_NR_SVKY ARY_MS_DRNG IDN_NR_AMKY IDN_NR_C
 config_rtlds -rule  -disable -tag { REG_NR_RWRC }
 # vsd2018_constrain //
 
-analyze -sv ./src/CONV.v ./src/convDataPath.v ./src/convCtrl.v 
+analyze -sv ./src/CONV.v ./src/ctrl.v ./src/dp.v ./src/fakeMem.v ./src/maxPool_2x2.v ./src/PE_1D.v
 elaborate -bbox true -top CONV  
 
 # Setup clock and reset
