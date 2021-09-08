@@ -214,7 +214,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         if (M0_addr < 793 << 2) begin
                             M0_addr <= 793 << 2;
                             my_addr <= my_addr;
-                        end else if (M0_addr == 793 << 2) begin
+                        end else if (M0_addr > 793 << 2) begin
                             M0_addr <= M0_addr;
                             my_addr <= my_addr;
                         end else begin
