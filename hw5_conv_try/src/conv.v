@@ -57,6 +57,15 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
 	    end
     end
 
+    // // M1_R_data
+    // always @(posedge clk) begin
+    //     if (rst == 0) begin
+	//         M1_R_data <= 32'b0;
+    //     end else begin
+	//         M1_R_data <= M1_W_data;
+	//     end
+    // end
+
     // read_weight
     always @(posedge clk) begin
         if (rst == 0) begin
@@ -196,10 +205,10 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
             if (start_read == 1'b1) begin
                 if (read_weight == 1'b1) begin
                     if (already_weight == 1'b0) begin
-                        if (M0_addr < 783 << 2) begin
-                            M0_addr <= 783 << 2;
+                        if (M0_addr < 783 * 4) begin
+                            M0_addr <= 783 * 4;
                             my_addr <= my_addr;
-                        end else if (M0_addr > 792 << 2) begin
+                        end else if (M0_addr > 792 * 4) begin
                             M0_addr <= M0_addr;
                             my_addr <= my_addr;
                         end else begin
@@ -208,13 +217,14 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         end
                     end else begin
                         M0_addr <= M0_addr;
+                        my_addr <= my_addr;
                     end
                 end else if (read_bias == 1'b1) begin
                     if (already_bias == 1'b0) begin
-                        if (M0_addr < 793 << 2) begin
-                            M0_addr <= 793 << 2;
+                        if (M0_addr < 792 * 4) begin
+                            M0_addr <= 792 * 4;
                             my_addr <= my_addr;
-                        end else if (M0_addr > 793 << 2) begin
+                        end else if (M0_addr > 792 * 4) begin
                             M0_addr <= M0_addr;
                             my_addr <= my_addr;
                         end else begin
@@ -233,14 +243,14 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         if (my_addr % 28 != 26) begin
                             if (in_count == 8) begin // to store the initial addr
                                 my_addr <= my_addr + 1;
-                                M0_addr <= (my_addr + 1 + count) << 2;
+                                M0_addr <= (my_addr + 1 + count) * 4;
                             end else begin
                                 my_addr <= my_addr;
-                                M0_addr <= (my_addr + count) << 2;
+                                M0_addr <= (my_addr + count) * 4;
                             end
                         end else begin
                             my_addr <= my_addr + 2;
-                            M0_addr <= (my_addr + 2) << 2;
+                            M0_addr <= (my_addr + 2) * 4;
                         end
                     end else begin
                         my_addr <= my_addr;
@@ -348,6 +358,8 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
             M1_W_data <= 32'b0;
             M1_addr <= 32'b0;
             M0_W_req <= 4'b0;
+            M1_W_req <= 0;
+            M1_R_req <= 0;
             for (i = 0; i < 9; i = i + 1) begin
                 Reg_result[i] <= 0;
             end
@@ -359,7 +371,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                     PRE: begin
                         Reg_count_fin <= 64'b0;
                         for (i = 0; i < 9; i = i + 1) begin
-                        Reg_result[i] <= 0;    
+                            Reg_result[i] <= 0;    
                         end
                         M1_addr <= 32'b0;
                         if (start_conv == 1'b1) begin
@@ -445,6 +457,17 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                     end
 
                 endcase 
+            end else begin
+                M1_W_data <= M1_W_data;
+                M1_addr <= 32'b0;
+                M0_W_req <= M0_W_req;
+                M1_W_req <= M1_W_req;
+                M1_R_req <= M1_R_req;
+                for (i = 0; i < 9; i = i + 1) begin
+                    Reg_result[i] <= Reg_result[i];
+                end
+                Reg_count_fin <= Reg_count_fin;
+                state <= state;
             end
         end
     end
