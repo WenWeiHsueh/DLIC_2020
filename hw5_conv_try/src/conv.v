@@ -360,6 +360,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
             M0_W_req <= 4'b0;
             M1_W_req <= 0;
             M1_R_req <= 0;
+            check <= 0;
             for (i = 0; i < 9; i = i + 1) begin
                 Reg_result[i] <= 0;
             end
@@ -387,13 +388,13 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         end
                         Reg_count_fin <= 64'b0;
                         if(check == 1'b1) begin
-                            M1_addr <= M1_addr + 4;
+                            M1_addr <= M1_addr + 32'd4;
                             check <= 1'b0;
                         end else begin
                             M1_addr <= M1_addr;
                             check <= check;
                         end
-                        M1_W_req <= 0;
+                        M1_W_req <= 4'b0;
                         M1_R_req <= 0;
                         state <= READ;
                     end
@@ -454,6 +455,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
 
                     default: begin
                         state <= SET;
+                        M1_addr <= 32'b0;
                     end
 
                 endcase 
