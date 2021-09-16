@@ -24,7 +24,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     reg        finish;
     reg        M1_R_req;
     reg [3:0]  M1_W_req;
-    reg [31:0] M1_addr;
+    // reg [31:0] M1_addr;
 
     reg [31:0] Reg_input     [8:0];
     reg [31:0] Reg_weight    [8:0];
@@ -46,7 +46,16 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     reg [4:0]  i;
 
     reg [15:0] s_addr;
+
     
+    
+    //I'd like to know whether it's better or not.
+    reg signed [15:0] M1_addr_r;
+    assign M1_addr = $signed(M1_addr_r);
+    //I'd like to know whether it's better or not.
+
+
+
     parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, WRITE = 3'b110;
     
     // assign my_addr = s_addr;
@@ -350,7 +359,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     always @(posedge clk) begin
         if (rst == 0) begin
             M1_W_data <= 32'b0;
-            M1_addr <= 32'b0;
+            M1_addr_r <= 32'b0;
             M0_W_req <= 4'b0;
             M1_W_req <= 0;
             M1_R_req <= 0;
@@ -365,7 +374,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                 case (state)
                     PRE: begin
                         Reg_count_fin <= 64'b0;
-                        M1_addr <= 32'b0;
+                        M1_addr_r <= 32'b0;
                         if (start_conv == 1'b1) begin
                             state <= SET; 
                         end else begin
@@ -376,10 +385,10 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                     SET: begin
                         Reg_count_fin <= 64'b0;
                         if(check == 1'b1) begin
-                            M1_addr <= M1_addr + 32'd4;
+                            M1_addr_r <= M1_addr_r + 32'd4;
                             check <= 1'b0;
                         end else begin
-                            M1_addr <= M1_addr;
+                            M1_addr_r <= M1_addr_r;
                             check <= check;
                         end
                         M1_W_req <= 4'b0;
@@ -444,13 +453,13 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
 
                     default: begin
                         state <= SET;
-                        M1_addr <= 32'b0;
+                        M1_addr_r <= 32'b0;
                     end
 
                 endcase 
             end else begin
                 M1_W_data <= M1_W_data;
-                M1_addr <= 32'b0;
+                M1_addr_r <= 32'b0;
                 M0_W_req <= M0_W_req;
                 M1_W_req <= M1_W_req;
                 M1_R_req <= M1_R_req;
@@ -462,5 +471,4 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
             end
         end
     end
-
-    endmodule
+endmodule
