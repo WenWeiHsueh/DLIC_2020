@@ -12,7 +12,8 @@ module dp(
   output reg        [`DATA_WIDTH-1:0] M1_W_data,
   output reg                          M1_R_req,
   output reg                    [3:0] M1_W_req,
-  output reg                          finish
+  output reg                          finish,
+  output reg            [`STATE_DONE] done_state
 );
     input         rst;
     input         clk;
@@ -60,15 +61,42 @@ module dp(
     reg [4:0]  i;
 
 
-    parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, WRITE = 3'b110;
+    parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, 
+            ROUND = 3'b100, ADD = 3'b101, WRITE = 3'b110;
     
+    wire read_w_b_done;
+
+    assign read_w_b_done = already_weight & already_bias;
+
+    // // done_state
+    // always @(posedge clk) begin
+    //     if (rst == 0) begin
+    //         done_state <= 6'b0;
+    //     end else begin
+    //         done_state <= 6'b0;
+    //         case (curr_state)
+    //             PRE: begin
+    //                 if (read_w_b_done) begin
+    //                     done_state[`PRE] <= 1;
+    //                 end else begin
+    //                     done_state <= done_state;
+    //                 end
+    //             end 
+                
+    //             SET: begin
+    //                 if () begin
+    //                 end
+    //             end
+    //     end
+    // end
+
     // M0_W_data
     always @(posedge clk) begin
     	if (rst == 0) begin
-	    M0_W_data <= 32'b0;
+	        M0_W_data <= 32'b0;
         end else begin
-	    M0_W_data <= M0_W_data;
-	end
+	        M0_W_data <= M0_W_data;
+	    end
     end
 
     // read_weight
@@ -273,7 +301,7 @@ module dp(
         if (rst == 0) begin
             count <= 0;
         end else begin
-            if (state == SET) begin
+            if (curr_state == SET) begin
                 case (count)
                     0: begin
                         count <= 1;
@@ -317,7 +345,7 @@ module dp(
         if (rst == 0) begin
             in_count <= 0;
         end else begin
-            if (state == READ) begin
+            if (curr_state == READ) begin
                 case (count)
                     0: begin
                         in_count <= 0;
@@ -375,10 +403,10 @@ module dp(
                 Reg_result[i] <= 0;
             end
             Reg_count_fin <= 64'b0;
-            state <= PRE;
+            done_state <= 1'b0;
         end else begin
             if (already_weight == 1'b1 && already_bias == 1'b1) begin
-                case (state)
+                case (curr_state)
                     PRE: begin
                         Reg_count_fin <= 64'b0;
                         for (i = 0; i < 9; i = i + 1) begin
@@ -386,9 +414,9 @@ module dp(
                         end
                         M1_addr <= 32'b0;
                         if (start_conv == 1'b1) begin
-                            state <= SET; 
+                            done_state[`PRE] <= 1'b1; 
                         end else begin
-                            state <= state;
+                            done_state <= done_state;
                         end
                     end
 
@@ -406,7 +434,7 @@ module dp(
                         end
                         M1_W_req <= 0;
                         M1_R_req <= 0;
-                        state <= READ;
+                        done_state[`SET] <= 1'b1;
                     end
 
                     READ: begin
@@ -414,14 +442,14 @@ module dp(
                             if (in_count < 8) begin
                                 check <= check;
                                 Reg_input[in_count] <= M0_R_data;
-                                state <= SET;
+                                done_state <= done_state;
                             end else begin
                                 check <= 1'b1;
                                 Reg_input[in_count] <= M0_R_data;
-                                state <= MULT;
+                                done_state[`READ] <= 1'b1;
                             end
                         end else begin
-                            state <= SET;
+                            done_state <= done_state;
                         end
                     end
 
@@ -429,7 +457,7 @@ module dp(
                         for (i = 0; i <= 8; i = i + 1) begin
                             Reg_mult[i] <= {{32{Reg_input[i][31]}}, Reg_input[i]} * {{32{Reg_weight[i][31]}}, Reg_weight[i]};
                         end
-                        state <= ROUND;
+                        done_state[`MULT] <= 1'b1;
                     end
 
                     ROUND: begin
@@ -440,7 +468,7 @@ module dp(
                                 Reg_result[i] <= {Reg_mult[i][47:16]} + 32'b0;      
                             end
                         end
-                        state <= ADD;
+                        done_state[`ROUND] <= 1'b1;;
                     end
 
                     ADD: begin
@@ -448,7 +476,7 @@ module dp(
                         + {{32{Reg_result[3][31]}}, Reg_result[3]} + {{32{Reg_result[4][31]}}, Reg_result[4]} + {{32{Reg_result[5][31]}}, Reg_result[5]}
                         + {{32{Reg_result[6][31]}}, Reg_result[6]} + {{32{Reg_result[7][31]}}, Reg_result[7]} + {{32{Reg_result[8][31]}}, Reg_result[8]}
                         + {{32{Reg_bias[31]}}, Reg_bias};
-                        state <= WRITE;
+                        done_state[`ADD] <= 1'b1;;
                     end
                     
                     WRITE: begin
@@ -460,11 +488,11 @@ module dp(
                             M1_W_req <= M1_W_req;
                             M1_R_req <= M1_R_req;
                         end
-                        state <= SET;
+                        done_state[`WRITE] <= 1'b1;;
                     end
 
                     default: begin
-                        state <= SET;
+                        done_state <= 1'b0;
                     end
 
                 endcase 

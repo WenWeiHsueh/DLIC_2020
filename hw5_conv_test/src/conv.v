@@ -24,7 +24,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     reg        finish;
     reg        M1_R_req;
     reg [3:0]  M1_W_req;
-    reg [31:0] M1_addr;
+    // reg [31:0] M1_addr;
 
     reg [31:0] Reg_input     [8:0];
     reg [31:0] Reg_weight    [8:0];
@@ -45,9 +45,21 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     reg [0:0]  check; // to check if the input data follow the rules of convolution
     reg [4:0]  i;
 
+    reg [15:0] s_addr;
+
+    
+    
+    //I'd like to know whether it's better or not.
+    reg signed [15:0] M1_addr_r;
+    assign M1_addr = $signed(M1_addr_r);
+    //I'd like to know whether it's better or not.
+
+
 
     parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, WRITE = 3'b110;
     
+    // assign my_addr = s_addr;
+
     // M0_W_data
     always @(posedge clk) begin
     	if (rst == 0) begin
@@ -91,7 +103,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
             end
         end else begin
             if (M0_R_req == 1 && start_read == 1'b1 && already_weight == 1'b0) begin
-                Reg_weight[(M0_addr - 4) / 4 - 784] <= M0_R_data;
+                Reg_weight[((M0_addr - 4) >> 2) - 784] <= M0_R_data;
             end else begin
                 for (i = 0; i < 9; i = i + 1) begin
                     Reg_weight[i] <= Reg_weight[i];
@@ -179,7 +191,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
         if (rst == 0) begin
             finish <= 0;
         end else begin
-            if (my_addr > 28 * 26 - 1) begin
+            if (s_addr > 28 * 26 - 1) begin
                 finish <= 1;
             end else begin
                 finish <= finish;
@@ -187,10 +199,10 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
         end
     end
 
-    // count M0_addr, my_addr
+    // count M0_addr, s_addr
     always @(posedge clk) begin
         if (rst == 0) begin
-            my_addr <= 32'b0;
+            s_addr <= 32'b0;
             M0_addr <= 32'b0;
         end else begin // read weight
             if (start_read == 1'b1) begin
@@ -198,58 +210,59 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                     if (already_weight == 1'b0) begin
                         if (M0_addr < 783 << 2) begin
                             M0_addr <= 783 << 2;
-                            my_addr <= my_addr;
+                            s_addr <= s_addr;
                         end else if (M0_addr > 792 << 2) begin
                             M0_addr <= M0_addr;
-                            my_addr <= my_addr;
+                            s_addr <= s_addr;
                         end else begin
                             M0_addr <= M0_addr + 4;
-                            my_addr <= my_addr;
+                            s_addr <= s_addr;
                         end
                     end else begin
                         M0_addr <= M0_addr;
+                        s_addr <= s_addr;
                     end
                 end else if (read_bias == 1'b1) begin
                     if (already_bias == 1'b0) begin
-                        if (M0_addr < 793 << 2) begin
-                            M0_addr <= 793 << 2;
-                            my_addr <= my_addr;
-                        end else if (M0_addr == 793 << 2) begin
+                        if (M0_addr < 792 * 4) begin
+                            M0_addr <= 792 * 4;
+                            s_addr <= s_addr;
+                        end else if (M0_addr > 792 << 2) begin
                             M0_addr <= M0_addr;
-                            my_addr <= my_addr;
+                            s_addr <= s_addr;
                         end else begin
                             M0_addr <= M0_addr + 4;
-                            my_addr <= my_addr;
+                            s_addr <= s_addr;
                         end
                     end else begin
                         M0_addr <= M0_addr;
-                        my_addr <= my_addr;
+                        s_addr <= s_addr;
                     end
                 end else begin
                     if (state == PRE) begin
-                        my_addr <= 32'b0;
+                        s_addr <= 32'b0;
                         M0_addr <= 32'b0;
                     end else if (state == READ) begin
-                        if (my_addr % 28 != 26) begin
+                        if (s_addr % 28 != 26) begin
                             if (in_count == 8) begin // to store the initial addr
-                                my_addr <= my_addr + 1;
-                                M0_addr <= (my_addr + 1 + count) << 2;
+                                s_addr <= s_addr + 1;
+                                M0_addr <= (s_addr + 1 + count) << 2;
                             end else begin
-                                my_addr <= my_addr;
-                                M0_addr <= (my_addr + count) << 2;
+                                s_addr <= s_addr;
+                                M0_addr <= (s_addr + count) << 2;
                             end
                         end else begin
-                            my_addr <= my_addr + 2;
-                            M0_addr <= (my_addr + 2) << 2;
+                            s_addr <= s_addr + 2;
+                            M0_addr <= (s_addr + 2) << 2;
                         end
                     end else begin
-                        my_addr <= my_addr;
+                        s_addr <= s_addr;
                         M0_addr <= M0_addr;
                     end
                 end 
             end else begin
                 M0_addr <= M0_addr;
-                my_addr <= my_addr;
+                s_addr <= s_addr;
             end
         end
     end
@@ -289,7 +302,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         count <= 0;
                     end
                     default: begin
-                        count <= 9;
+                        count <= count;
                     end
                 endcase 
             end else begin
@@ -346,8 +359,11 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
     always @(posedge clk) begin
         if (rst == 0) begin
             M1_W_data <= 32'b0;
-            M1_addr <= 32'b0;
+            M1_addr_r <= 32'b0;
             M0_W_req <= 4'b0;
+            M1_W_req <= 0;
+            M1_R_req <= 0;
+            check <= 0;
             for (i = 0; i < 9; i = i + 1) begin
                 Reg_result[i] <= 0;
             end
@@ -358,10 +374,7 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                 case (state)
                     PRE: begin
                         Reg_count_fin <= 64'b0;
-                        for (i = 0; i < 9; i = i + 1) begin
-                        Reg_result[i] <= 0;    
-                        end
-                        M1_addr <= 32'b0;
+                        M1_addr_r <= 32'b0;
                         if (start_conv == 1'b1) begin
                             state <= SET; 
                         end else begin
@@ -370,24 +383,21 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                     end
 
                     SET: begin
-                        for (i = 0; i < 9; i = i + 1) begin
-                            Reg_result[i] <= 32'b0; 
-                        end
                         Reg_count_fin <= 64'b0;
                         if(check == 1'b1) begin
-                            M1_addr <= M1_addr + 4;
+                            M1_addr_r <= M1_addr_r + 32'd4;
                             check <= 1'b0;
                         end else begin
-                            M1_addr <= M1_addr;
+                            M1_addr_r <= M1_addr_r;
                             check <= check;
                         end
-                        M1_W_req <= 0;
+                        M1_W_req <= 4'b0;
                         M1_R_req <= 0;
                         state <= READ;
                     end
 
                     READ: begin
-                        if (my_addr % 28 != 26) begin
+                        if (s_addr % 28 != 26) begin
                             if (in_count < 8) begin
                                 check <= check;
                                 Reg_input[in_count] <= M0_R_data;
@@ -436,17 +446,29 @@ M1_R_req, M1_addr, M1_R_data, M1_W_req, M1_W_data, start, finish);
                         end else begin
                             M1_W_req <= M1_W_req;
                             M1_R_req <= M1_R_req;
+                            M1_W_data <= M1_W_data;
                         end
                         state <= SET;
                     end
 
                     default: begin
                         state <= SET;
+                        M1_addr_r <= 32'b0;
                     end
 
                 endcase 
+            end else begin
+                M1_W_data <= M1_W_data;
+                M1_addr_r <= 32'b0;
+                M0_W_req <= M0_W_req;
+                M1_W_req <= M1_W_req;
+                M1_R_req <= M1_R_req;
+                for (i = 0; i < 9; i = i + 1) begin
+                    Reg_result[i] <= Reg_result[i];
+                end
+                Reg_count_fin <= Reg_count_fin;
+                state <= state;
             end
         end
     end
-
-    endmodule
+endmodule
