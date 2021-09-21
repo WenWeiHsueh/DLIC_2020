@@ -25,16 +25,6 @@ module  CONV(
 
 endmodule
 
-module ctrl(
-	input clk,
-	input reset,
 
-);
-
-module dp(
-	input clk,
-	input reset,
-
-);
 
 
