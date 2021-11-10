@@ -52,7 +52,7 @@ module  CONV(
     reg [11:0] pseudo_addr;
     reg [15:0] base_addr;
 
-    parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, WRITE = 3'b110;
+    parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, RELU = 3'b110,  WRITE = 3'b111;
     
     // assign my_addr = s_addr;
 
@@ -362,9 +362,14 @@ module  CONV(
                         + {{32{Reg_result[3][19]}}, Reg_result[3]} + {{32{Reg_result[4][19]}}, Reg_result[4]} + {{32{Reg_result[5][19]}}, Reg_result[5]}
                         + {{32{Reg_result[6][19]}}, Reg_result[6]} + {{32{Reg_result[7][19]}}, Reg_result[7]} + {{32{Reg_result[8][19]}}, Reg_result[8]}
                         + {{32{b_0[19]}}, b_0};
-                        state <= WRITE;
+                        state <= RELU;
                     end
                     
+                    RELU: begin
+                        Reg_count_fin <= ((Reg_count_fin[63] == 0) ? Reg_count_fin : 0);
+                        state <= WRITE;
+                    end
+
                     WRITE: begin
                         if(check == 1'b1) begin
                             cwr <= 1'b1;
