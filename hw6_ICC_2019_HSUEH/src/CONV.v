@@ -1,20 +1,24 @@
+`include "define.v"
+
+//I'm tring to make the two kernel excute fine.
+
 module  CONV(
   input                                 clk,
   input                                 reset,
-  output reg                               busy,
+  output reg                            busy,
   input                                 ready,
 
   output                         [11:0] iaddr,
   input                          [19:0] idata,
-  output reg                               cwr,
-  output reg                        [11:0] caddr_wr,
-  output reg                        [19:0] cdata_wr,
+  output reg                            cwr,
+  output reg                     [11:0] caddr_wr,
+  output reg                     [19:0] cdata_wr,
 
-  output reg                               crd,
-  output reg                        [11:0] caddr_rd,
+  output reg                            crd,
+  output reg                     [11:0] caddr_rd,
   input                          [19:0] cdata_rd,
 
-  output reg                         [2:0] csel
+  output reg                      [2:0] csel
 );
     // input         start;
   `include "weight.param"
@@ -41,18 +45,24 @@ module  CONV(
     reg [31:0] Reg_result    [8:0];
     reg [63:0] Reg_mult      [8:0];
     reg [63:0] Reg_count_fin;
-    reg [2:0]  state;
+    reg [3:0]  state;
     reg [0:0]  start_conv;
     reg [0:0]  start_read;
     reg [4:0]  in_count; // the index of input data
     reg [7:0]  count; // to count the current # of data
     reg [31:0] my_addr;
     reg [0:0]  check; // to check if the input data follow the rules of convolution
-    reg [4:0]  i;
+    reg [3:0]  i;
     reg [11:0] pseudo_addr;
     reg [15:0] base_addr;
+    reg [1:0] kernel_sel;
+    reg [0:0] finish_lay0_k0;
+    reg [0:0] kernel;
 
-    parameter PRE = 3'b000, SET = 3'b001, READ = 3'b010, MULT = 3'b011, ROUND = 3'b100, ADD = 3'b101, RELU = 3'b110,  WRITE = 3'b111;
+    reg signed [`DATA_WIDTH-1:0] w_mem [0:8];
+    reg signed [`DATA_WIDTH-1:0] bias;
+
+    parameter PRE = 4'b0000, SET = 4'b0001, READ = 4'b0010, MULT = 4'b0011, ROUND = 4'b0100, ADD = 4'b0101, RELU = 4'b0110,  WRITE = 4'b0111, KER_SWI = 4'b1000;
     
     // assign my_addr = s_addr;
 
@@ -64,15 +74,6 @@ module  CONV(
 	//         M0_W_data <= M0_W_data;
 	//     end
     // end
-
-    // csel
-    always @(posedge clk) begin
-        if (reset) begin
-            csel <= 3'b000;
-        end else begin
-            csel <= 3'b000;
-        end
-    end
     
     // // M0_R_req
     // always @(posedge clk) begin
@@ -87,6 +88,13 @@ module  CONV(
     //     end
     // end
 
+// // kernel_sel
+// always @(*) begin
+//     kernel_sel = 0;
+//     if (conditions) begin
+        
+//     end
+// end
     
     // busy
     always @(posedge clk) begin
@@ -170,6 +178,54 @@ module  CONV(
         .data(data),
         .idata(idata)
     );
+
+    // w_mem0
+    always @(posedge clk) begin
+        case (kernel)
+            0: begin
+                for (i = 0; i < 9; i = i + 1) begin
+                    w_mem[i] <= w_mem0[i];
+                end
+            end
+            1: begin
+                for (i = 0; i < 9; i = i + 1) begin
+                    w_mem[i] <= w_mem1[i];
+                end
+            end
+        endcase
+    end
+
+    // bias
+    always @(posedge clk) begin
+        case (kernel)
+            0: begin
+                bias <= b_0;
+            end
+            1: begin
+                bias <= b_1;
+            end
+        endcase
+    end
+
+
+    // wire signed [`DATA_WIDTH-1:0] w_mem [0:8];
+    // wire signed [`DATA_WIDTH-1:0] bias;
+    // kernelsel kernelsel_conv(
+    //     .clk(clk),
+    //     .kernel(kernel),
+    //     .reset(reset),
+    //     .w_mem(w_mem),
+    //     .bias(bias)
+    // );
+
+        // csel
+    always @(posedge clk) begin
+        if (reset) begin
+            csel <= 3'b000;
+        end else begin
+            csel <= kernel == 0 ? 3'b001 : 3'b010;
+        end
+    end
 
     // iaddr
     always @(posedge clk) begin
@@ -287,7 +343,7 @@ module  CONV(
             // M1_R_req <= 0;
             cwr <= 1'b0;
             check <= 0;
-            
+            kernel <= 0;
             for (i = 0; i < 9; i = i + 1) begin
                 Reg_result[i] <= 0;
             end
@@ -314,16 +370,16 @@ module  CONV(
                     SET: begin // 1
                         Reg_count_fin <= 64'b0;
                         if(check == 1'b1) begin
-                            caddr_wr <= caddr_wr + 12'd1;
-                            check <= 1'b0;
-                        end else begin
-                            caddr_wr <= caddr_wr;
-                            check <= check;
+                            if (kernel == 1) begin
+                                kernel <= 0;
+                                caddr_wr <= caddr_wr + 12'd1;
+                                check <= 1'b0;
+                            end
                         end
                         // M1_W_req <= 4'b0;
                         // M1_R_req <= 0;
                         cwr <= 1'b0;
-                        state <= READ;
+                        state <= READ; 
                     end
 
                     READ: begin // 2
@@ -339,14 +395,14 @@ module  CONV(
                         end
                     end
 
-                    MULT: begin
+                    MULT: begin // 3
                         for (i = 0; i <= 8; i = i + 1) begin
-                            Reg_mult[i] <= {{32{Reg_input[i][19]}}, Reg_input[i]} * {{32{w_mem0[i][19]}}, w_mem0[i]};
-                        end
+                            Reg_mult[i] <= {{32{Reg_input[i][19]}}, Reg_input[i]} * {{32{w_mem[i][19]}}, w_mem[i]};
+                        end                 
                         state <= ROUND;
                     end
 
-                    ROUND: begin
+                    ROUND: begin // 4
                         for (i = 0; i <= 8; i = i + 1) begin
                             if (Reg_mult[i][15:0] >= 16'b1000000000000000) begin
                                 Reg_result[i] <= {Reg_mult[i][47:16]} + 32'b1;
@@ -357,31 +413,36 @@ module  CONV(
                         state <= ADD;
                     end
 
-                    ADD: begin
+                    ADD: begin // 5
                         Reg_count_fin <= {{32{Reg_result[0][19]}}, Reg_result[0]} + {{32{Reg_result[1][19]}}, Reg_result[1]} + {{32{Reg_result[2][19]}}, Reg_result[2]}
                         + {{32{Reg_result[3][19]}}, Reg_result[3]} + {{32{Reg_result[4][19]}}, Reg_result[4]} + {{32{Reg_result[5][19]}}, Reg_result[5]}
                         + {{32{Reg_result[6][19]}}, Reg_result[6]} + {{32{Reg_result[7][19]}}, Reg_result[7]} + {{32{Reg_result[8][19]}}, Reg_result[8]}
-                        + {{32{b_0[19]}}, b_0};
+                        + {{32{bias[19]}}, bias};
                         state <= RELU;
                     end
-                    
-                    RELU: begin
+
+                    RELU: begin // 6
                         Reg_count_fin <= ((Reg_count_fin[63] == 0) ? Reg_count_fin : 0);
                         state <= WRITE;
                     end
 
-                    WRITE: begin
+                    WRITE: begin // 7
                         if(check == 1'b1) begin
                             cwr <= 1'b1;
                             cdata_wr <= {Reg_count_fin[31:0]};
                         end
-                        state <= SET;
+                        if (kernel == 0) begin
+                            kernel <= 1;
+                            state <= KER_SWI;
+                        end else if (kernel == 1) begin
+                            state <= SET;
+                        end
                     end
 
-                    default: begin
-                        state <= SET;
-                        caddr_wr <= 32'b0;
+                    KER_SWI: begin // 8 Waiting for kernel switch
+                        state <= MULT;
                     end
+
                 endcase 
             end
         end
