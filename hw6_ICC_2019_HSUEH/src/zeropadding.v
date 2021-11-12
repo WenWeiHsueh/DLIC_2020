@@ -1,6 +1,6 @@
 module  zeropadding(
   input                                 clk,
-  input                          [11:0] pseudo_addr,
+  input                          [12:0] pseudo_addr,
   output reg                     [11:0] iaddr,
   input                          [19:0] idata,
   output reg                     [19:0] data
@@ -30,7 +30,7 @@ end
 always @(*) begin
     data = 0;
     if (z_flag) begin
-        data = 0;
+        data = 19'b0;
     end else begin
         data = idata;
     end

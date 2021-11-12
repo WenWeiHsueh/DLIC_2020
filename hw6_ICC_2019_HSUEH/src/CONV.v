@@ -39,12 +39,12 @@ module  CONV(
     // reg [3:0]  M1_W_req;
     // reg [31:0] M1_addr;
 
-    reg [31:0] Reg_input     [8:0];
-    reg [31:0] Reg_weight    [8:0];
-    reg [31:0] Reg_bias;
-    reg [31:0] Reg_result    [8:0];
-    reg [63:0] Reg_mult      [8:0];
-    reg [63:0] Reg_count_fin;
+    reg [19:0] Reg_input     [8:0];
+    reg [19:0] Reg_weight    [8:0];
+    reg [19:0] Reg_bias;
+    reg [39:0] Reg_result    [8:0];
+    reg [39:0] Reg_mult      [8:0];
+    reg [59:0] Reg_count_fin;
     reg [3:0]  state;
     reg [0:0]  start_conv;
     reg [0:0]  start_read;
@@ -53,16 +53,18 @@ module  CONV(
     reg [31:0] my_addr;
     reg [0:0]  check; // to check if the input data follow the rules of convolution
     reg [3:0]  i;
-    reg [11:0] pseudo_addr;
-    reg [15:0] base_addr;
+    reg [12:0] pseudo_addr;
+    reg [12:0] base_addr;
     reg [1:0] kernel_sel;
     reg [0:0] finish_lay0_k0;
     reg [0:0] kernel;
+    reg [31:0] count_for_maxpooling;
 
     reg signed [`DATA_WIDTH-1:0] w_mem [0:8];
     reg signed [`DATA_WIDTH-1:0] bias;
 
-    parameter PRE = 4'b0000, SET = 4'b0001, READ = 4'b0010, MULT = 4'b0011, ROUND = 4'b0100, ADD = 4'b0101, RELU = 4'b0110,  WRITE = 4'b0111, KER_SWI = 4'b1000;
+    parameter PRE = 4'b0000, SET = 4'b0001, READ = 4'b0010, MULT = 4'b0011, ROUND = 4'b0100, 
+    ADD = 4'b0101, RELU = 4'b0110,  WRITE = 4'b0111, KER_SWI = 4'b1000, ADD_9 = 4'b1001, ADD_BIAS = 4'b1010;
     
     // assign my_addr = s_addr;
 
@@ -103,7 +105,7 @@ module  CONV(
         end else begin
             if (start_read == 1) begin
                 busy <= 1'b1;
-            end else if (iaddr > 64 * 64 - 1) begin
+            end else if (base_addr >= 64 + 66 * 63) begin
                 busy <= 1'b0;
             end
         end
@@ -117,9 +119,9 @@ module  CONV(
         end else begin
             if(ready) begin
                 start_conv <= 1'b1;
-            end else begin
+            end else begin                      //delete from here!!
                 start_conv <= start_conv;
-            end
+            end                                 //to he
         end
     end
 
@@ -127,6 +129,8 @@ module  CONV(
     always @(posedge clk) begin
         if(ready == 1'b1) begin
             start_read <= 1'b1;
+        end else begin
+            start_read <= 1'b0;
         end
     end
 
@@ -223,23 +227,31 @@ module  CONV(
         if (reset) begin
             csel <= 3'b000;
         end else begin
-            csel <= kernel == 0 ? 3'b001 : 3'b010;
+            csel <= (kernel == 0 ? 3'b001 : 3'b010);
         end
     end
 
     // iaddr
     always @(posedge clk) begin
         if (reset) begin
-            base_addr <= 32'b0;
-            pseudo_addr <= 0;
+            base_addr <= 13'b0;
+            pseudo_addr <= 13'b0;
         end else begin
             if (state == READ) begin
-                if (in_count == 8) begin // to store the initial addr
+                if (base_addr % 66 != 64) begin
+                   if (in_count == 8) begin // to store the initial addr
                     base_addr <= base_addr + 1;
                     pseudo_addr <= base_addr + 1 + count;
+                    end else begin
+                        base_addr <= base_addr;
+                        pseudo_addr <= base_addr + count;
+                    end 
+                end else if (base_addr % 66 == 63) begin
+                    base_addr <= base_addr + 2;
+                    pseudo_addr <= base_addr + 2 + count;
                 end else begin
-                    base_addr <= base_addr;
-                    pseudo_addr <= base_addr + count;
+                    base_addr <= base_addr + 2;
+                    pseudo_addr <= base_addr + 2 + count;    
                 end
             end
         end
@@ -383,7 +395,7 @@ module  CONV(
                     end
 
                     READ: begin // 2
-                        if ((base_addr % 66 != 64) && (base_addr % 66 != 65)) begin
+                        if (base_addr % 66 != 64) begin
                             Reg_input[in_count] <= data;
                             if (in_count < 8) begin
                                 check <= check;
@@ -392,44 +404,59 @@ module  CONV(
                                 check <= 1'b1;
                                 state <= MULT;
                             end
+                        end else begin
+                            state <= SET;
                         end
                     end
 
                     MULT: begin // 3
                         for (i = 0; i <= 8; i = i + 1) begin
-                            Reg_mult[i] <= {{32{Reg_input[i][19]}}, Reg_input[i]} * {{32{w_mem[i][19]}}, w_mem[i]};
+                            Reg_result[i] <= {{20{Reg_input[i][19]}}, Reg_input[i]} * {{20{w_mem[i][19]}}, w_mem[i]};
                         end                 
+                        state <= ADD_9;
+                    end
+
+                    // ROUND: begin // 4
+                    //     for (i = 0; i <= 8; i = i + 1) begin
+                    //         if (Reg_mult[i][15:0] >= 16'b1000000000000000) begin
+                    //             Reg_result[i] <= {Reg_mult[i][35:16]} + 20'b1;
+                    //         end else begin
+                    //             Reg_result[i] <= {Reg_mult[i][35:16]} + 20'b0;      
+                    //         end
+                    //     end
+                    //     state <= ADD;
+                    // end
+
+                    ADD_9: begin // 5
+                        Reg_count_fin <= {{20{Reg_result[0][39]}}, Reg_result[0]} + {{20{Reg_result[1][39]}}, Reg_result[1]} + {{20{Reg_result[2][39]}}, Reg_result[2]}
+                        + {{20{Reg_result[3][39]}}, Reg_result[3]} + {{20{Reg_result[4][39]}}, Reg_result[4]} + {{20{Reg_result[5][39]}}, Reg_result[5]}
+                        + {{20{Reg_result[6][39]}}, Reg_result[6]} + {{20{Reg_result[7][39]}}, Reg_result[7]} + {{20{Reg_result[8][39]}}, Reg_result[8]};
                         state <= ROUND;
                     end
 
-                    ROUND: begin // 4
-                        for (i = 0; i <= 8; i = i + 1) begin
-                            if (Reg_mult[i][15:0] >= 16'b1000000000000000) begin
-                                Reg_result[i] <= {Reg_mult[i][47:16]} + 32'b1;
-                            end else begin
-                                Reg_result[i] <= {Reg_mult[i][47:16]} + 32'b0;      
-                            end
+                    ROUND: begin
+                        if (Reg_count_fin[15:0] >= 16'b1000000000000000) begin
+                            Reg_count_fin <= {Reg_count_fin[35:16]} + 20'b1;
+                        end else begin
+                            Reg_count_fin <= {Reg_count_fin[35:16]} + 20'b0;
                         end
-                        state <= ADD;
+                        state <= ADD_BIAS;
                     end
 
-                    ADD: begin // 5
-                        Reg_count_fin <= {{32{Reg_result[0][19]}}, Reg_result[0]} + {{32{Reg_result[1][19]}}, Reg_result[1]} + {{32{Reg_result[2][19]}}, Reg_result[2]}
-                        + {{32{Reg_result[3][19]}}, Reg_result[3]} + {{32{Reg_result[4][19]}}, Reg_result[4]} + {{32{Reg_result[5][19]}}, Reg_result[5]}
-                        + {{32{Reg_result[6][19]}}, Reg_result[6]} + {{32{Reg_result[7][19]}}, Reg_result[7]} + {{32{Reg_result[8][19]}}, Reg_result[8]}
-                        + {{32{bias[19]}}, bias};
+                    ADD_BIAS: begin
+                        Reg_count_fin <= Reg_count_fin + {{20{bias[19]}}, bias};
                         state <= RELU;
                     end
 
                     RELU: begin // 6
-                        Reg_count_fin <= ((Reg_count_fin[63] == 0) ? Reg_count_fin : 0);
+                        Reg_count_fin <= ((Reg_count_fin[19] == 0) ? Reg_count_fin : 0);
                         state <= WRITE;
                     end
 
                     WRITE: begin // 7
                         if(check == 1'b1) begin
                             cwr <= 1'b1;
-                            cdata_wr <= {Reg_count_fin[31:0]};
+                            cdata_wr <= {Reg_count_fin[19:0]};
                         end
                         if (kernel == 0) begin
                             kernel <= 1;
@@ -440,6 +467,7 @@ module  CONV(
                     end
 
                     KER_SWI: begin // 8 Waiting for kernel switch
+                        cwr <= 1'b0;
                         state <= MULT;
                     end
 
