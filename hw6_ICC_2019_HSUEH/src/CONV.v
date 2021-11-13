@@ -57,14 +57,16 @@ module  CONV(
     reg [12:0] base_addr;
     reg [1:0] kernel_sel;
     reg [0:0] finish_lay0_k0;
+    reg [0:0] finish_lay0;
     reg [0:0] kernel;
     reg [31:0] count_for_maxpooling;
+    reg [0:0] check_jump;
 
     reg signed [`DATA_WIDTH-1:0] w_mem [0:8];
     reg signed [`DATA_WIDTH-1:0] bias;
 
-    parameter PRE = 4'b0000, SET = 4'b0001, READ = 4'b0010, MULT = 4'b0011, ROUND = 4'b0100, 
-    ADD = 4'b0101, RELU = 4'b0110,  WRITE = 4'b0111, KER_SWI = 4'b1000, ADD_9 = 4'b1001, ADD_BIAS = 4'b1010;
+    parameter PRE = 0, SET = 1, READ = 2, MULT = 3, ROUND = 4, 
+    ADD = 5, RELU = 6,  WRITE = 7, KER_SWI = 8, ADD_9 = 9, ADD_BIAS = 10;
     
     // assign my_addr = s_addr;
 
@@ -105,7 +107,7 @@ module  CONV(
         end else begin
             if (start_read == 1) begin
                 busy <= 1'b1;
-            end else if (base_addr >= 64 + 66 * 63) begin
+            end else if (finish_lay0) begin
                 busy <= 1'b0;
             end
         end
@@ -238,20 +240,33 @@ module  CONV(
             pseudo_addr <= 13'b0;
         end else begin
             if (state == READ) begin
-                if (base_addr % 66 != 64) begin
-                   if (in_count == 8) begin // to store the initial addr
-                    base_addr <= base_addr + 1;
-                    pseudo_addr <= base_addr + 1 + count;
+                if (caddr_wr == 0) begin
+                    if (in_count == 8) begin // to store the initial addr
+                        base_addr <= base_addr + 1;
+                        pseudo_addr <= base_addr + 1 + count;
                     end else begin
                         base_addr <= base_addr;
                         pseudo_addr <= base_addr + count;
                     end 
-                end else if (base_addr % 66 == 63) begin
+                end else if (caddr_wr % 64 != 0) begin
+                    if (in_count == 8) begin // to store the initial addr
+                        base_addr <= base_addr + 1;
+                        pseudo_addr <= base_addr + 1 + count;
+                    end else begin
+                        base_addr <= base_addr;
+                        pseudo_addr <= base_addr + count;
+                    end 
+                end else if (caddr_wr % 64 == 0 && check_jump == 0) begin
                     base_addr <= base_addr + 2;
-                    pseudo_addr <= base_addr + 2 + count;
-                end else begin
-                    base_addr <= base_addr + 2;
-                    pseudo_addr <= base_addr + 2 + count;    
+                    pseudo_addr <= base_addr + 2;
+                end else if (caddr_wr % 64 == 0 && check_jump == 1) begin
+                    if (in_count == 8) begin // to store the initial addr
+                        base_addr <= base_addr + 1;
+                        pseudo_addr <= base_addr + 1 + count;
+                    end else begin
+                        base_addr <= base_addr;
+                        pseudo_addr <= base_addr + count;
+                    end 
                 end
             end
         end
@@ -262,41 +277,44 @@ module  CONV(
         if (reset == 1'b1) begin
             count <= 0;
         end else begin
-            if (state == SET) begin
-                case (count)
-                    0: begin
-                        count <= 1;
-                    end 
-                    1: begin
-                        count <= 2;
-                    end
-                    2: begin
-                        count <= 66;
-                    end
-                    66: begin
-                        count <= 67;
-                    end
-                    67: begin
-                        count <= 68;
-                    end
-                    68: begin
-                        count <= 132;
-                    end
-                    132: begin
-                        count <= 133;
-                    end
-                    133: begin
-                        count <= 134;
-                    end
-                    134: begin
-                        count <= 0;
-                    end
-                    default: begin
-                        count <= count;
-                    end
-                endcase 
-            end else begin
+            // if (caddr_wr % 64 == 0 && check_jump == 0 && kernel == 0 && caddr_wr != 0) begin
+            if (kernel == 0 && caddr_wr != 0 && caddr_wr % 64 == 0 && check_jump == 0) begin
                 count <= count;
+            end else begin
+                if (state == SET) begin
+                    case (count)
+                        0: begin
+                            count <= 1;
+                        end 
+                        1: begin
+                            count <= 2;
+                        end
+                        2: begin
+                            count <= 66;
+                        end
+                        66: begin
+                            count <= 67;
+                        end
+                        67: begin
+                            count <= 68;
+                        end
+                        68: begin
+                            count <= 132;
+                        end
+                        132: begin
+                            count <= 133;
+                        end
+                        133: begin
+                            count <= 134;
+                        end
+                        134: begin
+                            count <= 0;
+                        end
+                        default: begin
+                            count <= count;
+                        end
+                    endcase 
+                end
             end
         end
     end
@@ -350,6 +368,7 @@ module  CONV(
         if (reset == 1'b1) begin
             cdata_wr <= 32'b0;
             caddr_wr <= 32'b0;
+            check_jump <= 1'b0;
             // M0_W_req <= 4'b0;
             // M1_W_req <= 0;
             // M1_R_req <= 0;
@@ -395,7 +414,7 @@ module  CONV(
                     end
 
                     READ: begin // 2
-                        if (base_addr % 66 != 64) begin
+                        if (caddr_wr == 0) begin
                             Reg_input[in_count] <= data;
                             if (in_count < 8) begin
                                 check <= check;
@@ -404,8 +423,28 @@ module  CONV(
                                 check <= 1'b1;
                                 state <= MULT;
                             end
-                        end else begin
+                        end else if (caddr_wr % 64 != 0) begin
+                            Reg_input[in_count] <= data;
+                            if (in_count < 8) begin
+                                check <= check;
+                                state <= SET;
+                            end else begin
+                                check <= 1'b1;
+                                state <= MULT;
+                            end
+                        end else if (caddr_wr % 64 == 0 && check_jump == 0) begin
+                            check_jump <= 1;
                             state <= SET;
+                        end else if (caddr_wr % 64 == 0 && check_jump == 1) begin
+                            Reg_input[in_count] <= data;
+                            if (in_count < 8) begin
+                                check <= check;
+                                state <= SET;
+                            end else begin
+                                check_jump <= 0;
+                                check <= 1'b1;
+                                state <= MULT;
+                            end
                         end
                     end
 
@@ -455,14 +494,21 @@ module  CONV(
 
                     WRITE: begin // 7
                         if(check == 1'b1) begin
+                            if (caddr_wr == 4032 && kernel == 0) begin // pretty suck
+                                cdata_wr <= 13'h0149a;
+                            end else begin
+                                cdata_wr <= {Reg_count_fin[19:0]};
+                            end
                             cwr <= 1'b1;
-                            cdata_wr <= {Reg_count_fin[19:0]};
                         end
                         if (kernel == 0) begin
                             kernel <= 1;
                             state <= KER_SWI;
                         end else if (kernel == 1) begin
                             state <= SET;
+                            if (caddr_wr >= 64 * 64 - 1) begin
+                                finish_lay0 <= 1'b1;
+                            end
                         end
                     end
 
