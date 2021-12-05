@@ -3,7 +3,8 @@ module  zeropadding(
   input                          [12:0] pseudo_addr,
   output reg                     [11:0] iaddr,
   input                          [19:0] idata,
-  output reg                     [19:0] data
+  output reg                     [19:0] data,
+  input                                 reset
 );
 
 reg [0:0] z_flag;
@@ -21,8 +22,10 @@ always @(*) begin
     end
 end
 
-always @(posedge clk) begin//registered output
-    if (z_flag == 0) begin
+always @(posedge clk or posedge reset) begin//registered output
+    if (reset) begin
+        iaddr <= 0;
+    end else if (z_flag == 0) begin
         iaddr <= pseudo_addr - 66 - 1 - (((pseudo_addr / 66) - 1) * 2);
     end
 end

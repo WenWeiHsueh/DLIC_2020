@@ -39,7 +39,6 @@ module  CONV(
     reg [12:0] base_addr_lay2;
     reg [0:0]  finish_lay0;
     reg [0:0]  finish_lay1;
-    reg [0:0]  finish_lay0_k0;
     reg [0:0]  finish_lay1_k0;
     reg [0:0]  finish_lay2_k0;
     reg [19:0] Reg_L1_input [3:0];
@@ -54,10 +53,10 @@ module  CONV(
     ADD = 5, RELU = 6,  WRITE = 7, KER_SWI = 8, ADD_9 = 9, 
     ADD_BIAS = 10, WAIT = 11, READ_LAY1_K0 = 12, READ_LAY1_K1 = 13,
     MAXPOOLING = 14, WRITE_MAX = 15, Finish = 16, SET_READ_L2 = 17, 
-    READ_L2_K0 = 18, READ_L2_K1 = 19, SET_WRITE_L2 = 20, WRITE_L2 = 21;
+    READ_L2_K0 = 18, READ_L2_K1 = 19, SET_WRITE_L2 = 20, WRITE_L2 = 21, WRITE_MAX_WAIT = 22, WRITE_L2_WAIT = 23;
 
     // iaddr
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             base_addr_lay0 <= 13'b0;
             pseudo_addr <= 13'b0;
@@ -96,7 +95,7 @@ module  CONV(
     end
 
     // busy
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset == 1'b1) begin
             busy <= 0;
         end else begin
@@ -109,7 +108,7 @@ module  CONV(
     end
 
     // start_conv
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset == 1'b1) begin
             start_conv <= 1'b0;
         end else begin
@@ -122,8 +121,10 @@ module  CONV(
     end
 
     // start_read
-    always @(posedge clk) begin
-        if(ready == 1'b1) begin
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            start_read <= 1'b0;
+        end else if (ready == 1'b1) begin
             start_read <= 1'b1;
         end else begin
             start_read <= 1'b0;
@@ -136,7 +137,8 @@ module  CONV(
         .pseudo_addr(pseudo_addr),
         .iaddr(iaddr),
         .data(data),
-        .idata(idata)
+        .idata(idata),
+        .reset(reset)
     );
     
     wire [`DATA_WIDTH-1:0] max;
@@ -150,7 +152,7 @@ module  CONV(
     );
 
     // w_mem0
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             for (i = 0; i < 9; i = i + 1) begin
                 w_mem[i] <= 0;
@@ -172,7 +174,7 @@ module  CONV(
     end
 
     // bias
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             bias <= 0;
         end else begin
@@ -189,7 +191,7 @@ module  CONV(
 
     
     // count_lay0
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset == 1'b1) begin
             count_lay0 <= 0;
         end else begin
@@ -236,7 +238,7 @@ module  CONV(
     end
 
     // in_count_lay0
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset == 1'b1) begin
             in_count_lay0 <= 0;
         end else begin
@@ -280,7 +282,7 @@ module  CONV(
     end
 
     // csel
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             csel <= 3'b000;
         end else begin
@@ -290,21 +292,19 @@ module  CONV(
                 end else begin
                     csel <= 3'b011;
                 end
-            end else if (state == WAIT) begin
-                if (finish_lay1) begin
-                    if (finish_lay2_k0) begin
-                        csel <= 3'b100;
-                    end else begin
-                        csel <= 3'b011;
-                    end
-                end else begin // lay1
-                    if (finish_lay1_k0) begin
-                        csel <= 3'b010;
-                    end else begin
-                        csel <= 3'b001;
-                    end
+            end else if (state == WRITE_MAX_WAIT) begin // L1
+                if (finish_lay1_k0) begin
+                    csel <= 3'b010;
+                end else begin
+                    csel <= 3'b001;
                 end
-            end else if (state == RELU) begin
+            end else if (state == WRITE_L2_WAIT) begin
+                if (finish_lay2_k0) begin
+                    csel <= 3'b100;
+                end else begin
+                    csel <= 3'b011;
+                end
+            end else if (state == ADD_BIAS) begin
                 csel <= (kernel == 0 ? 3'b001 : 3'b010);  
             end else if (state == SET_WRITE_L2) begin
                 csel <= 3'b101;
@@ -316,18 +316,18 @@ module  CONV(
     always @(*) begin
         caddr_rd = 0;
         if (state == READ_LAY1_K0 || state == READ_LAY1_K1) begin
-            caddr_rd <= base_addr_lay1 + count_lay1; 
+            caddr_rd = base_addr_lay1 + count_lay1; 
         end else if (state == READ_L2_K0 || state == READ_L2_K1) begin
-            caddr_rd <= base_addr_lay2;
+            caddr_rd = base_addr_lay2;
         end
     end
 
     // base_addr_lay1
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             base_addr_lay1 <= 0;
         end else begin
-            if (state == WAIT) begin
+            if (state == WRITE_MAX_WAIT) begin
                 if (base_addr_lay1 % 64 == 62 && caddr_wr % 32 == 0) begin
                     base_addr_lay1 <= base_addr_lay1 + 66;
                 end else if (finish_lay1_k0 == 0) begin
@@ -338,11 +338,11 @@ module  CONV(
     end
     
     // base_addr_lay2
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             base_addr_lay2 <= 0;
         end else begin
-            if (state == WAIT) begin
+            if (state == WRITE_L2_WAIT) begin
                 if (finish_lay2_k0 == 0) begin
                     base_addr_lay2 <= base_addr_lay2 + 1;
                 end
@@ -351,7 +351,7 @@ module  CONV(
     end
 
     // count_lay1
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             count_lay1 <= 0;
         end else begin
@@ -375,7 +375,7 @@ module  CONV(
     end
 
     // in_count_lay1
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             in_count_lay1 <= 0;
         end else begin
@@ -394,7 +394,7 @@ module  CONV(
     end
     
     // Execute
-    always @(posedge clk) begin
+    always @(posedge clk or posedge reset) begin
         if (reset == 1'b1) begin
             cdata_wr <= 32'b0;
             caddr_wr <= 32'b0;
@@ -408,6 +408,9 @@ module  CONV(
             Reg_count_fin <= 64'b0;
             state <= PRE;
             finish_lay1 <= 0;
+            finish_lay0 <= 0;
+            finish_lay1_k0 <= 0;
+            finish_lay2_k0 <= 0;
         end else begin
             if (start_conv) begin
                 case (state)
@@ -536,13 +539,7 @@ module  CONV(
                             crd <= 1;
                         end
                         cwr <= 1'b0;
-                        if (finish_lay1_k0) begin
-                            state <= READ_LAY1_K1;
-                        end else if (finish_lay1 != 1) begin
-                            state <= READ_LAY1_K0;
-                        end else if (finish_lay1) begin
-                            state <= SET_READ_L2;
-                        end
+                        state <= READ_LAY1_K0;
                     end
 
                     READ_LAY1_K0: begin
@@ -572,7 +569,7 @@ module  CONV(
                     WRITE_MAX: begin
                         if (caddr_wr > 32 * 32 - 1) begin
                             finish_lay1 <= 1;
-                            state <= WAIT;
+                            state <= WRITE_MAX_WAIT;
                             caddr_wr <= 0;
                         end else begin
                             if (finish_lay1_k0) begin
@@ -581,7 +578,20 @@ module  CONV(
                             end else begin
                                 finish_lay1_k0 <= 1;
                             end
-                            state <= WAIT; 
+                            state <= WRITE_MAX_WAIT; 
+                        end
+                    end
+
+                    WRITE_MAX_WAIT: begin
+                        cwr <= 0;
+                        if (finish_lay1) begin
+                            state <= SET_READ_L2;
+                        end else begin
+                            if (finish_lay1_k0) begin
+                                state <= READ_LAY1_K1;
+                            end else begin
+                                state <= READ_LAY1_K0;
+                            end
                         end
                     end
 
@@ -619,8 +629,13 @@ module  CONV(
                         if (caddr_wr >= 32 * 32 * 2) begin
                             state <= Finish;
                         end else begin
-                            state <= WAIT; 
+                            state <= WRITE_L2_WAIT; 
                         end
+                    end
+
+                    WRITE_L2_WAIT: begin
+                        cwr <= 1'b0;
+                        state <= SET_READ_L2;
                     end
 
                     Finish: begin
